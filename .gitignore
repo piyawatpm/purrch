@@ -1,0 +1,7 @@
+.build/
+*.app/
+AppIcon.icns
+preview.png
+.DS_Store
+.claude/
+tools/__pycache__/

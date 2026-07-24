@@ -1,0 +1,156 @@
+{
+  "frameWidth": 40,
+  "frameHeight": 32,
+  "ground": 28,
+  "animations": {
+    "idle": {
+      "frames": 8,
+      "msPerFrame": 140
+    },
+    "walk": {
+      "frames": 8,
+      "msPerFrame": 90
+    },
+    "sit": {
+      "frames": 6,
+      "msPerFrame": 190
+    },
+    "groom": {
+      "frames": 8,
+      "msPerFrame": 120
+    },
+    "sleep": {
+      "frames": 6,
+      "msPerFrame": 340
+    },
+    "drag": {
+      "frames": 4,
+      "msPerFrame": 110
+    },
+    "fall": {
+      "frames": 2,
+      "msPerFrame": 90
+    },
+    "happy": {
+      "frames": 6,
+      "msPerFrame": 110
+    },
+    "eat": {
+      "frames": 8,
+      "msPerFrame": 130
+    },
+    "land": {
+      "frames": 4,
+      "msPerFrame": 70
+    },
+    "dizzy": {
+      "frames": 8,
+      "msPerFrame": 130
+    },
+    "stretch": {
+      "frames": 8,
+      "msPerFrame": 130
+    },
+    "yawn": {
+      "frames": 8,
+      "msPerFrame": 150
+    },
+    "scratch": {
+      "frames": 8,
+      "msPerFrame": 80
+    },
+    "loaf": {
+      "frames": 6,
+      "msPerFrame": 260
+    },
+    "run": {
+      "frames": 8,
+      "msPerFrame": 55
+    },
+    "wiggle": {
+      "frames": 8,
+      "msPerFrame": 90
+    },
+    "love": {
+      "frames": 6,
+      "msPerFrame": 150
+    },
+    "angry": {
+      "frames": 6,
+      "msPerFrame": 90
+    },
+    "curious": {
+      "frames": 6,
+      "msPerFrame": 150
+    },
+    "surprise": {
+      "frames": 6,
+      "msPerFrame": 90
+    },
+    "purr": {
+      "frames": 6,
+      "msPerFrame": 200
+    },
+    "flop": {
+      "frames": 6,
+      "msPerFrame": 280
+    },
+    "rollover": {
+      "frames": 6,
+      "msPerFrame": 150
+    },
+    "arch": {
+      "frames": 6,
+      "msPerFrame": 100
+    },
+    "beg": {
+      "frames": 6,
+      "msPerFrame": 150
+    },
+    "pounce": {
+      "frames": 4,
+      "msPerFrame": 70
+    },
+    "sniff": {
+      "frames": 8,
+      "msPerFrame": 120
+    },
+    "play": {
+      "frames": 8,
+      "msPerFrame": 90
+    },
+    "knead": {
+      "frames": 6,
+      "msPerFrame": 150
+    },
+    "blep": {
+      "frames": 6,
+      "msPerFrame": 260
+    },
+    "chatter": {
+      "frames": 8,
+      "msPerFrame": 90
+    },
+    "rub": {
+      "frames": 6,
+      "msPerFrame": 130
+    }
+  },
+  "collarStyles": [
+    "none",
+    "band",
+    "bell",
+    "bowtie",
+    "bandana"
+  ],
+  "bowls": [
+    "kibble",
+    "fish",
+    "treat",
+    "milk"
+  ],
+  "mouse": {
+    "w": 16,
+    "h": 12
+  }
+}

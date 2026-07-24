@@ -61,7 +61,8 @@ Settings or the menu if you'd rather he kept his distance.
 **Moods & moments**
 - Idle long enough and you'll catch the rare ones: bread-loaf mode, a full-body
   stretch, an ear-scratch, a yawn, a butt-wiggle, zoomies, a side flop, a
-  belly-up rollover, a spooked Halloween arch, begging, a blep, bird-chattering,
+  belly-up rollover, a flat belly-up play, a spooked Halloween arch, begging, a
+  blep, bird-chattering,
   a cheek-rub, making biscuits, and batting at the floor
 - "Playful antics" can be switched off (Settings or menu) if you'd rather he
   stayed calm
@@ -90,7 +91,9 @@ Settings or the menu if you'd rather he kept his distance.
 - Falls asleep when you've been away (configurable), wakes when you come back
 - Click him to pet him — hearts and a happy hop
 - Drag him anywhere; let go mid-air and he drops and lands
-- Right-click him for the full menu
+- **Right-click him** for an organised control panel — quick actions (come
+  here, feed, toy mouse, sit, sleep, hide), a mode picker, toggles, and links to
+  Tasks, Settings, and About
 - Survives displays being plugged in, unplugged, or rearranged without getting
   stranded on coordinates that no longer exist
 
@@ -157,7 +160,8 @@ Sources/PetApp/
   TaskStore.swift            tasks, carry-forward, history, persistence
   Settings.swift             UserDefaults + launch-at-login
   MenuBarController.swift
-  SettingsView.swift, TasksView.swift, TaskPopoverView.swift,
+  SettingsView.swift, TasksView.swift, TaskPopoverView.swift, CatPreview.swift,
+  PetControlPanel.swift,
   AboutView.swift, PanelWindows.swift
   Sounds.swift
   Resources/                 sprites, sounds

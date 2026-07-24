@@ -5,7 +5,7 @@ enum PetState: String, CaseIterable {
     case land, dizzy, stretch, yawn, scratch, loaf, run, wiggle
     case love, angry, curious, surprise, purr
     case flop, rollover, arch, beg, pounce, sniff, play, knead, blep, chatter, rub
-    case stargaze
+    case stargaze, bellyplay
 }
 
 /// One frame plus a per-pixel opacity mask, so clicks can be tested against the

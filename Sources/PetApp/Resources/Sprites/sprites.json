@@ -138,6 +138,10 @@
     "stargaze": {
       "frames": 10,
       "msPerFrame": 150
+    },
+    "bellyplay": {
+      "frames": 8,
+      "msPerFrame": 110
     }
   },
   "collarStyles": [

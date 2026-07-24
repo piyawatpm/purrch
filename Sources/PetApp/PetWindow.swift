@@ -39,6 +39,7 @@ final class PetView: NSView {
     static let padBottom: CGFloat = 10
 
     var onClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
 
     private var dragOffset = CGSize.zero
     private var isDragging = false
@@ -317,6 +318,6 @@ final class PetView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        NSApp.sendAction(#selector(AppDelegate.showMenuFromPet(_:)), to: nil, from: self)
+        onRightClick?()
     }
 }

@@ -1243,6 +1243,40 @@ def anim_rub(n=6):
     return out
 
 
+def draw_bellyplay(cv, p):
+    """Sprawled flat on his back, belly up, batting all four paws at the air."""
+    bx = p["bx"]
+    gy = GROUND - 3.0
+    t = p.get("t", 0.0)
+    # tail flicking along the floor
+    draw_tail(cv, bx - 9.0, gy + 1.0, 0.1 + math.sin(t * math.tau) * 0.2, 0.12, length=1.7)
+    # dark back flat on the ground, wide and low
+    cv.ellipse(bx, gy + 1.6, 10.0, 2.6, DARK)
+    # big pale belly, the whole length of him
+    cv.ellipse(bx + 0.5, gy - 0.8, 8.4, 2.9, LIGHT)
+    cv.ellipse(bx + 0.5, gy + 0.2, 7.8, 2.2, RIM)
+    # four paws up, batting in a lively alternating rhythm
+    for i, dx in enumerate((-5.2, -2.6, 2.4, 5.0)):
+        bat = math.sin(t * math.tau * 2 + i * 1.7)
+        px = bx + dx + bat * 1.6
+        py = gy - 3.2 - abs(bat) * 2.6
+        cv.taper(bx + dx, gy - 1.6, px, py, 2.5, 1.9, DARK)
+        cv.ellipse(px, py - 0.4, 1.7, 1.4, MID)
+    # head tipped back off the right end, relaxed, tongue out a touch
+    hx, hy = bx + 8.6, gy + 0.4
+    cv.ellipse(hx, hy, 4.3, 3.8, MID)
+    cv.poly([(hx + 0.6, hy - 2.4), (hx + 1.9, hy - 6.6), (hx + 3.4, hy - 1.4)], MID)
+    cv.poly([(hx + 1.2, hy - 2.6), (hx + 1.9, hy - 5.2), (hx + 2.8, hy - 1.6)], INNER_EAR)
+    cv.ellipse(hx + 1.5, hy + 1.8, 2.1, 1.6, LIGHT)      # upside-down muzzle
+    cv.put(hx + 2.7, hy + 2.5, NOSE)
+    if p.get("blink"):
+        cv.rect(hx - 0.6, hy - 0.4, hx + 1.2, hy - 0.4, OUTLINE)
+    else:
+        cv.put(hx + 0.2, hy - 0.4, EYE); cv.put(hx + 1.0, hy - 0.4, EYE)
+    if p.get("tongue"):
+        cv.put(hx + 2.6, hy + 3.4, PINK)
+
+
 def anim_stargaze(n=10):
     """A shooting star crosses the top, then a wish sparkle twinkles."""
     out = []
@@ -1254,6 +1288,17 @@ def anim_stargaze(n=10):
         out.append(frame(draw_stargaze, {
             "bx": 17.5, "by": 18.6, "hx": 25.5, "hy": 10.2,
             "eye": 1.0, "starx": starx, "sparkles": sparkles,
+        }))
+    return out
+
+
+def anim_bellyplay(n=8):
+    out = []
+    for i in range(n):
+        t = i / n
+        out.append(frame(draw_bellyplay, {
+            "bx": 18.0, "t": t,
+            "blink": i == 4, "tongue": i % 2 == 0,
         }))
     return out
 
@@ -1293,6 +1338,7 @@ ANIMS = {
     "chatter":  (anim_chatter,  90),
     "rub":      (anim_rub,     130),
     "stargaze": (anim_stargaze, 150),
+    "bellyplay": (anim_bellyplay, 110),
 }
 
 

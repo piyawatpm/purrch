@@ -313,7 +313,7 @@ final class PetBrain {
         case .pounce: tickPounce(dt)
         case .love, .angry, .curious, .surprise, .purr,
              .flop, .rollover, .arch, .beg, .sniff, .play, .knead, .blep, .chatter, .rub,
-             .stargaze:
+             .stargaze, .bellyplay:
             if stateElapsed > stateDuration { enter(.idle, for: .random(in: 1...2)) }
         }
 
@@ -507,7 +507,7 @@ final class PetBrain {
         }
         enum Antic: CaseIterable {
             case stretch, yawn, scratch, wiggle, zoomies, flop, rollover
-            case arch, beg, blep, chatter, rub, knead, play
+            case arch, beg, blep, chatter, rub, knead, play, bellyplay
         }
         switch Antic.allCases.randomElement()! {
         case .stretch:  enter(.stretch, for: clipDuration(.stretch))
@@ -524,6 +524,7 @@ final class PetBrain {
         case .rub:      enter(.rub, for: .random(in: 2.5...4))
         case .knead:    enter(.knead, for: .random(in: 3...5))
         case .play:     enter(.play, for: .random(in: 2.5...4))
+        case .bellyplay: enter(.bellyplay, for: .random(in: 3...5))
         }
     }
 
@@ -866,7 +867,10 @@ final class PetBrain {
     }
 
     private func tickSleep() {
-        if cachedIdleSeconds() < 2 { wake() }
+        // Auto-sleep (from being idle) wakes the moment you come back. A sleep you
+        // asked for stays put until you actually interact with him — otherwise the
+        // very click that put him to sleep would wake him again immediately.
+        if !manualSleep, cachedIdleSeconds() < 2 { wake() }
     }
 
     private func tickFall(_ dt: TimeInterval) {
@@ -937,6 +941,9 @@ final class PetBrain {
 
     private func enter(_ next: PetState, for duration: TimeInterval = 2.5) {
         guard state != next || next == .idle else { return }
+
+        // Leaving sleep by any path clears the sleep flags.
+        if state == .sleep { manualSleep = false; sleepy = false }
 
         // Anything that isn't part of the current errand abandons it. Without this
         // a stale target lingers and fires the next time he happens to walk.
@@ -1107,7 +1114,12 @@ final class PetBrain {
         speechRemaining = duration
     }
 
+    /// Set when the user asked him to sleep (menu / Sleep Now), so the idle-based
+    /// wake in tickSleep leaves him be until he's actually disturbed.
+    private var manualSleep = false
+
     func forceSleep() {
+        manualSleep = true
         enter(.sleep, for: .infinity)
     }
 

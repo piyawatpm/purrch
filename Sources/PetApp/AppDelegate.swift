@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Lets a panel be opened straight from the command line, which is how the UI
         // gets exercised without clicking through the menu bar.
         let args = CommandLine.arguments
-        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep"]
+        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel"]
         if args.contains(where: debugFlags.contains) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 if args.contains("--tasks") { PanelWindows.shared.showTasks() }
@@ -50,6 +50,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 if args.contains("--sleep") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.sleepNow() }
+                }
+                if args.contains("--sleep-persist") {
+                    // Sleep, then keep poking cachedIdleSeconds low by simulating a pet
+                    // after a delay to prove manual sleep persists then wakes on interaction.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.sleepNow() }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { controller.brain.pet() }
+                }
+                if args.contains("--bellyplay") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.forceState(.bellyplay, for: 4.0) }
+                }
+                if args.contains("--panel") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.debugShowControlPanel() }
                 }
                 if args.contains("--complete-task"),
                    let open = TaskStore.shared.today.first(where: { !$0.isDone }) {

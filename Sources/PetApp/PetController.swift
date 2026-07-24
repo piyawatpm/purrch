@@ -11,6 +11,7 @@ final class PetController: NSObject {
     private let mouseWindow = MouseWindow()
     private let view: PetView
     private let popover = NSPopover()
+    private let controlPopover = NSPopover()
     private let settings = Settings.shared
     private var timer: Timer?
     private var lastTick = CFAbsoluteTimeGetCurrent()
@@ -36,7 +37,11 @@ final class PetController: NSObject {
         popover.animates = true
         popover.delegate = self
 
+        controlPopover.behavior = .transient
+        controlPopover.animates = true
+
         view.onClick = { [weak self] in self?.handleClick() }
+        view.onRightClick = { [weak self] in self?.showControlPanel() }
         let trace = CommandLine.arguments.contains("--trace")
         brain.onStateChange = { [weak self] state in
             guard let self else { return }
@@ -159,6 +164,31 @@ final class PetController: NSObject {
 
     func feed() {
         brain.feed()
+    }
+
+    /// The organised control panel shown when you right-click the cat.
+    func debugShowControlPanel() { showControlPanel() }
+
+    private func showControlPanel() {
+        if controlPopover.isShown { controlPopover.performClose(nil); return }
+        if popover.isShown { popover.performClose(nil) }
+
+        let actions = PetControlActions(
+            comeHere: { [weak self] in self?.comeHere() },
+            feed:     { [weak self] in self?.feed() },
+            dropMouse:{ [weak self] in self?.dropMouse() },
+            sit:      { [weak self] in self?.sitNow() },
+            sleep:    { [weak self] in self?.sleepNow() },
+            hide:     { [weak self] in self?.toggleHidden() },
+            openTasks:   { PanelWindows.shared.showTasks() },
+            openSettings:{ [weak self] in guard let self else { return }
+                           PanelWindows.shared.showSettings(controller: self) },
+            openAbout:   { PanelWindows.shared.showAbout() },
+            close:    { [weak self] in self?.controlPopover.performClose(nil) })
+
+        controlPopover.contentViewController = NSHostingController(rootView: PetControlPanel(actions: actions))
+        NSApp.activate(ignoringOtherApps: true)
+        controlPopover.show(relativeTo: view.popoverAnchorRect, of: view, preferredEdge: .maxY)
     }
 
     func dropMouse() { brain.dropMouse() }

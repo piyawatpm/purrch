@@ -14,6 +14,7 @@ final class PetBrain {
 
     /// Set while a bubble is showing; the view draws it above his head.
     private(set) var speech: String?
+    private(set) var speechStartedAt: CFAbsoluteTime = 0
     private var speechRemaining: TimeInterval = 0
 
     private var animElapsed: TimeInterval = 0
@@ -80,6 +81,10 @@ final class PetBrain {
     private let gravity: CGFloat = 1400
 
     var onStateChange: ((PetState) -> Void)?
+    /// Called when he wants to make a sound with a line of chatter.
+    var onMeow: (() -> Void)?
+
+    private var chatterCd: TimeInterval = .random(in: 18...40)
 
     private let settings = Settings.shared
     private let lib = SpriteLibrary.shared
@@ -317,7 +322,37 @@ final class PetBrain {
             if stateElapsed > stateDuration { enter(.idle, for: .random(in: 1...2)) }
         }
 
+        considerChatter(dt)
         advanceAnimation(dt)
+    }
+
+    /// Every so often he pipes up on his own — a sudden meow, a request for a
+    /// treat, or a small thought. Only when he's calm and not already saying
+    /// something, so it never talks over itself.
+    private func considerChatter(_ dt: TimeInterval) {
+        guard speech == nil, !isHeld, mouse == nil, bowl == nil, !isClingy else { return }
+        switch state {
+        case .idle, .sit, .loaf, .groom, .walk: break
+        default: return
+        }
+        chatterCd -= dt
+        guard chatterCd <= 0 else { return }
+        chatterCd = .random(in: 45...110)
+
+        switch Int.random(in: 0..<100) {
+        case 0..<36:                                    // a sudden meow
+            onMeow?()
+            say(["meow", "mrrp", "mrow", "prrrt", "mew", "meww"].randomElement()!, for: 2.6)
+        case 36..<60:                                   // asking for a treat
+            if state == .idle || state == .sit || state == .loaf {
+                enter(.beg, for: 3.4)
+            }
+            say(["treat?", "snack?", "got a treat?", "feed me?", "hungry…", "one treat?"].randomElement()!, for: 4)
+        case 60..<82:                                   // a little thought
+            say(["hmm", "so warm", "nice", "boop", "\u{2665}", "…", "cozy"].randomElement()!, for: 2.6)
+        default:                                        // wanting attention
+            say(["hi", "pet me?", "hey", "look", "still here?"].randomElement()!, for: 3)
+        }
     }
 
     /// Animations that play through once and hold on the last frame rather than
@@ -1116,6 +1151,7 @@ final class PetBrain {
     }
 
     func say(_ text: String, for duration: TimeInterval = 4) {
+        if text != speech { speechStartedAt = CFAbsoluteTimeGetCurrent() }
         speech = text
         speechRemaining = duration
     }

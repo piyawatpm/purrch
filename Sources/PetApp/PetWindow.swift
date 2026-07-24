@@ -187,42 +187,69 @@ final class PetView: NSView {
     }
 
     private func drawBubble(_ ctx: CGContext, text: String) {
-        let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        // Rounded, friendly type. `.rounded` reads warmer than the default face.
+        let baseFont = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        let font = NSFont(descriptor: baseFont.fontDescriptor.withDesign(.rounded) ?? baseFont.fontDescriptor,
+                          size: 13) ?? baseFont
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: NSColor(calibratedWhite: 0.10, alpha: 1),
+            .foregroundColor: NSColor(calibratedWhite: 0.13, alpha: 1),
         ]
         let attributed = NSAttributedString(string: text, attributes: attrs)
         let textSize = attributed.size()
 
-        let padding = CGSize(width: 10, height: 6)
-        let bubbleSize = CGSize(width: min(textSize.width, 150) + padding.width * 2,
+        let padding = CGSize(width: 13, height: 8)
+        let bubbleSize = CGSize(width: min(textSize.width, 160) + padding.width * 2,
                                 height: textSize.height + padding.height * 2)
         let anchorX = spriteRect.midX + (brain.facingRight ? 6 : -6)
         var origin = CGPoint(x: anchorX - bubbleSize.width / 2,
-                             y: spriteRect.maxY - 6)
-        origin.x = min(max(origin.x, 2), bounds.width - bubbleSize.width - 2)
+                             y: spriteRect.maxY - 2)
+        origin.x = min(max(origin.x, 3), bounds.width - bubbleSize.width - 3)
         let bubble = CGRect(origin: origin, size: bubbleSize)
+        let tailX = min(max(anchorX, bubble.minX + 14), bubble.maxX - 14)
+        let tailTip = CGPoint(x: tailX, y: bubble.minY - 7)
+
+        // Pop-in: a quick spring of scale + fade from the tail, so lines feel spoken.
+        let age = CFAbsoluteTimeGetCurrent() - brain.speechStartedAt
+        let inT = min(1, age / 0.16)
+        let pop = 1 - pow(1 - inT, 3)                 // ease-out
+        let scale = 0.72 + 0.28 * pop
+        let overshoot = 1 + 0.06 * sin(pop * .pi)     // tiny bounce
+        let alpha = CGFloat(min(1, age / 0.12))
 
         ctx.saveGState()
-        ctx.setShadow(offset: CGSize(width: 0, height: -1), blur: 4,
-                      color: NSColor(calibratedWhite: 0, alpha: 0.35).cgColor)
-        ctx.setFillColor(NSColor(calibratedWhite: 0.97, alpha: 0.97).cgColor)
+        // scale around the tail tip so it grows out of his head
+        ctx.translateBy(x: tailTip.x, y: tailTip.y)
+        ctx.scaleBy(x: scale * overshoot, y: scale * overshoot)
+        ctx.translateBy(x: -tailTip.x, y: -tailTip.y)
+        ctx.setAlpha(alpha)
 
+        // rounded bubble body + a soft tail, one filled path
         let path = CGMutablePath()
-        path.addRoundedRect(in: bubble, cornerWidth: 8, cornerHeight: 8)
-        // little tail pointing down at his head
-        let tailX = min(max(anchorX, bubble.minX + 12), bubble.maxX - 12)
-        path.move(to: CGPoint(x: tailX - 5, y: bubble.minY + 0.5))
-        path.addLine(to: CGPoint(x: tailX + 1, y: bubble.minY - 6))
-        path.addLine(to: CGPoint(x: tailX + 6, y: bubble.minY + 0.5))
+        path.addRoundedRect(in: bubble, cornerWidth: 11, cornerHeight: 11)
+        path.move(to: CGPoint(x: tailX - 6, y: bubble.minY + 1))
+        path.addQuadCurve(to: tailTip, control: CGPoint(x: tailX - 3, y: bubble.minY - 3))
+        path.addQuadCurve(to: CGPoint(x: tailX + 6, y: bubble.minY + 1),
+                          control: CGPoint(x: tailX + 3, y: bubble.minY - 3))
         path.closeSubpath()
+
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: -2), blur: 7,
+                      color: NSColor(calibratedWhite: 0, alpha: 0.28).cgColor)
+        ctx.setFillColor(NSColor(calibratedWhite: 0.99, alpha: 1).cgColor)
         ctx.addPath(path)
         ctx.fillPath()
         ctx.restoreGState()
 
+        // hairline edge for a crisp, chat-app feel
+        ctx.addPath(path)
+        ctx.setStrokeColor(NSColor(calibratedWhite: 0.0, alpha: 0.08).cgColor)
+        ctx.setLineWidth(1)
+        ctx.strokePath()
+
         attributed.draw(at: CGPoint(x: bubble.minX + padding.width,
-                                    y: bubble.minY + padding.height))
+                                    y: bubble.minY + padding.height - 1))
+        ctx.restoreGState()
     }
 
     // MARK: - Animation of particles

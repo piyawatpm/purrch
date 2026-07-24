@@ -43,6 +43,7 @@ final class PetController: NSObject {
         view.onClick = { [weak self] in self?.handleClick() }
         view.onRightClick = { [weak self] in self?.showControlPanel() }
         let trace = CommandLine.arguments.contains("--trace")
+        brain.onMeow = { Sounds.shared.play(.meow) }
         brain.onStateChange = { [weak self] state in
             guard let self else { return }
             if trace {
@@ -51,7 +52,8 @@ final class PetController: NSObject {
                       "bowl=\(self.brain.bowl.map { Int($0.x) }.map(String.init) ?? "nil")  " +
                       "mouse=\(self.brain.mouse.map { Int($0.x) }.map(String.init) ?? "nil")  " +
                       "caught=\(self.brain.mouseCaught)  clingy=\(self.brain.isClingy)  " +
-                      "full=\(self.brain.bowlFull)  collar=\(SpriteLibrary.shared.loadedStyle)")
+                      "full=\(self.brain.bowlFull)  collar=\(SpriteLibrary.shared.loadedStyle)  " +
+                      "speech=\(self.brain.speech ?? "nil")")
             }
             self.window.invalidateCursorRects(for: view)
             if state == .happy { Sounds.shared.play(.meow) }
@@ -192,6 +194,16 @@ final class PetController: NSObject {
     }
 
     func dropMouse() { brain.dropMouse() }
+
+    /// Plays a named animation on the cat — used by the Animation Tester.
+    func playAnimation(_ name: String) {
+        guard let state = PetState(rawValue: name) else { return }
+        brain.wake()
+        brain.forceState(state, for: 6)
+    }
+
+    /// Every animation the cat has, for the tester menu.
+    var allAnimations: [String] { PetState.allCases.map { $0.rawValue } }
 
     @objc private func refreshQuickAddHotKey() {
         guard settings.quickAddEnabled else {

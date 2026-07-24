@@ -5,7 +5,7 @@ enum PetState: String, CaseIterable {
     case land, dizzy, stretch, yawn, scratch, loaf, run, wiggle
     case love, angry, curious, surprise, purr
     case flop, rollover, arch, beg, pounce, sniff, play, knead, blep, chatter, rub
-    case stargaze, bellyplay
+    case stargaze, bellyplay, jump
 }
 
 /// One frame plus a per-pixel opacity mask, so clicks can be tested against the
@@ -87,9 +87,11 @@ final class SpriteLibrary {
     private(set) var bowlKinds: [String] = []
     private(set) var bowlSize = CGSize(width: 15, height: 10)
 
-    /// Two frames of the mouse toy: still, running.
-    private(set) var mouseFrames: [CGImage] = []
-    private(set) var mouseSize = CGSize(width: 16, height: 12)
+    /// Toy frames keyed by kind (mouse | ball | feather).
+    private(set) var toyFrames: [String: [CGImage]] = [:]
+    private(set) var toySizes: [String: CGSize] = [:]
+    var mouseFrames: [CGImage] { toyFrames["mouse"] ?? [] }
+    var mouseSize: CGSize { toySizes["mouse"] ?? CGSize(width: 16, height: 12) }
 
     /// Distance in sprite pixels from the bottom of the canvas up to the floor line.
     var footInset: Int { frameHeight - groundRow }
@@ -168,17 +170,22 @@ final class SpriteLibrary {
     }
 
     private func loadMouse() {
-        guard let url = Bundle.module.url(forResource: "mouse", withExtension: "png",
-                                          subdirectory: "Resources/Sprites"),
-              let sheet = NSImage(contentsOf: url)?
-                  .cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return }
-        let w = sheet.width / 2
-        mouseSize = CGSize(width: w, height: sheet.height)
-        mouseFrames = (0..<2).compactMap {
-            sheet.cropping(to: CGRect(x: $0 * w, y: 0, width: w, height: sheet.height))
+        for (kind, file) in [("mouse", "mouse"), ("ball", "toy_ball"), ("feather", "toy_feather")] {
+            guard let url = Bundle.module.url(forResource: file, withExtension: "png",
+                                              subdirectory: "Resources/Sprites"),
+                  let sheet = NSImage(contentsOf: url)?
+                      .cgImage(forProposedRect: nil, context: nil, hints: nil)
+            else { continue }
+            let w = sheet.width / 2
+            toySizes[kind] = CGSize(width: w, height: sheet.height)
+            toyFrames[kind] = (0..<2).compactMap {
+                sheet.cropping(to: CGRect(x: $0 * w, y: 0, width: w, height: sheet.height))
+            }
         }
     }
+
+    func toyFrames(_ kind: String) -> [CGImage] { toyFrames[kind] ?? toyFrames["mouse"] ?? [] }
+    func toySize(_ kind: String) -> CGSize { toySizes[kind] ?? CGSize(width: 16, height: 12) }
 
     func clip(_ state: PetState) -> AnimationClip {
         clips[state] ?? clips[.idle]!

@@ -53,10 +53,13 @@ over to keep up with it, then rubs against it and shows hearts. Turn it off in
 Settings or the menu if you'd rather he kept his distance.
 
 **Play**
-- **Drop a Mouse** (menu) puts a wind-up mouse on the floor. It scurries and
-  darts away; he stalks it, sprints after it, pounces, catches it, and bats it
-  around — then it wriggles free and the chase starts over
-- Toys and food can be turned into a whole afternoon
+- Pick a toy (**mouse, ball, or feather**) and **Place Toy** — the next click
+  drops it anywhere on screen. He trots over, pounces, and plays with it.
+- Drop it on top of a window and he'll **jump up to reach it** (adjust his jump
+  height in Settings, or from a low `low` to a `super` leap).
+- Put it somewhere he just can't get to and, after trying, he **sulks** — cross
+  and glaring — until you **pet him**, or he gets over it on his own after a bit.
+- A proper jump animation, plus a "Test Animation" menu to preview them all.
 
 **Moods & moments**
 - Idle long enough and you'll catch the rare ones: bread-loaf mode, a full-body

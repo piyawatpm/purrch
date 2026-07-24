@@ -5,7 +5,7 @@ import SwiftUI
 struct PetControlActions {
     var comeHere: () -> Void
     var feed: () -> Void
-    var dropMouse: () -> Void
+    var placeToy: () -> Void
     var sit: () -> Void
     var sleep: () -> Void
     var hide: () -> Void
@@ -27,6 +27,7 @@ struct PetControlPanel: View {
     @State private var climb = Settings.shared.perchOnWindows
     @State private var clingy = Settings.shared.clingyEnabled
     @State private var sound = Settings.shared.soundEnabled
+    @State private var toy = Settings.shared.selectedToy
     @State private var openTaskCount = TaskStore.shared.openCount
 
     var body: some View {
@@ -69,13 +70,18 @@ struct PetControlPanel: View {
             HStack(spacing: 8) {
                 actionButton("Come here", "hand.wave") { actions.comeHere(); actions.close() }
                 actionButton("Feed", "fork.knife") { actions.feed(); actions.close() }
-                actionButton("Toy mouse", "cursorarrow.motionlines") { actions.dropMouse(); actions.close() }
+                actionButton("Place toy", "hand.point.up.left") { actions.placeToy(); actions.close() }
             }
             HStack(spacing: 8) {
                 actionButton("Sit", "figure.seated.side") { actions.sit(); actions.close() }
                 actionButton("Sleep", "moon.zzz") { actions.sleep(); actions.close() }
                 actionButton("Hide", "eye.slash") { actions.hide(); actions.close() }
             }
+            Picker("", selection: $toy) {
+                Text("Mouse").tag("mouse"); Text("Ball").tag("ball"); Text("Feather").tag("feather")
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .onChange(of: toy) { _, v in settings.selectedToy = v }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

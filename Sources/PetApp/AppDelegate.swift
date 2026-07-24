@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Lets a panel be opened straight from the command line, which is how the UI
         // gets exercised without clicking through the menu bar.
         let args = CommandLine.arguments
-        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble"]
+        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble", "--toy-floor", "--toy-high", "--toy-sulk"]
         if args.contains(where: debugFlags.contains) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 if args.contains("--tasks") { PanelWindows.shared.showTasks() }
@@ -68,6 +68,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 if args.contains("--bubble") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { controller.brain.say("got a treat?", for: 30) }
+                }
+                if args.contains("--toy-floor") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugPlaceToy(reachable: true) }
+                }
+                if args.contains("--toy-sulk") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugPlaceToy(reachable: false) }
+                }
+                if args.contains("--toy-high") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugPlaceToy(reachable: false) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 16.0) { controller.brain.debugPetNow() }
                 }
                 if args.contains("--complete-task"),
                    let open = TaskStore.shared.today.first(where: { !$0.isDone }) {

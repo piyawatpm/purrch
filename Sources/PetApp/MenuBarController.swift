@@ -54,7 +54,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Come Here", #selector(comeHere)))
         menu.addItem(item("Feed \(name)", #selector(feed)))
-        menu.addItem(item("Drop a Mouse", #selector(dropMouse)))
+        menu.addItem(toyMenu())
         menu.addItem(animationTesterMenu())
         menu.addItem(item(settings.hidden ? "Show \(name)" : "Hide \(name)", #selector(toggleHidden)))
         menu.addItem(item("Sit", #selector(sitNow)))
@@ -145,6 +145,27 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func comeHere() { controller.comeHere() }
     @objc private func feed() { controller.feed() }
     @objc private func dropMouse() { controller.dropMouse() }
+
+    private func toyMenu() -> NSMenuItem {
+        let parent = NSMenuItem(title: "Toy", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.addItem(item("Place Toy on Screen…", #selector(placeToy)))
+        sub.addItem(item("Drop Toy Nearby", #selector(dropMouse)))
+        sub.addItem(.separator())
+        for (label, value) in [("Mouse", "mouse"), ("Ball", "ball"), ("Feather", "feather")] {
+            let child = NSMenuItem(title: label, action: #selector(setToy(_:)), keyEquivalent: "")
+            child.target = self
+            child.representedObject = value
+            child.state = settings.selectedToy == value ? .on : .off
+            sub.addItem(child)
+        }
+        parent.submenu = sub
+        return parent
+    }
+    @objc private func placeToy() { controller.startPlacingToy() }
+    @objc private func setToy(_ sender: NSMenuItem) {
+        if let v = sender.representedObject as? String { settings.selectedToy = v }
+    }
 
     /// A submenu listing every animation, so any of them can be played on demand.
     private func animationTesterMenu() -> NSMenuItem {

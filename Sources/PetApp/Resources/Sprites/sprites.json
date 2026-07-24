@@ -142,6 +142,10 @@
     "bellyplay": {
       "frames": 8,
       "msPerFrame": 110
+    },
+    "jump": {
+      "frames": 4,
+      "msPerFrame": 80
     }
   },
   "collarStyles": [
@@ -160,5 +164,19 @@
   "mouse": {
     "w": 16,
     "h": 12
+  },
+  "toys": {
+    "mouse": {
+      "w": 16,
+      "h": 12
+    },
+    "ball": {
+      "w": 14,
+      "h": 14
+    },
+    "feather": {
+      "w": 16,
+      "h": 16
+    }
   }
 }

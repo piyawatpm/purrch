@@ -100,6 +100,7 @@ private struct BehaviourTab: View {
     private let settings = Settings.shared
 
     @State private var speed = Settings.shared.speed
+    @State private var jumpHeight = Settings.shared.jumpHeight
     @State private var antics = Settings.shared.anticsEnabled
     @State private var clingy = Settings.shared.clingyEnabled
     @State private var greetings = Settings.shared.greetingsEnabled
@@ -116,6 +117,13 @@ private struct BehaviourTab: View {
                     Slider(value: $speed, in: 0.3...2.4)
                         .onChange(of: speed) { _, v in settings.speed = v }
                     Text(speedLabel).font(.caption).foregroundStyle(.secondary)
+                        .frame(width: 56, alignment: .trailing)
+                }
+                HStack {
+                    Text("Jump height")
+                    Slider(value: $jumpHeight, in: 0.5...2.0)
+                        .onChange(of: jumpHeight) { _, v in settings.jumpHeight = v }
+                    Text(jumpLabel).font(.caption).foregroundStyle(.secondary)
                         .frame(width: 56, alignment: .trailing)
                 }
             }
@@ -173,6 +181,15 @@ private struct BehaviourTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var jumpLabel: String {
+        switch jumpHeight {
+        case ..<0.8: return "low"
+        case ..<1.3: return "normal"
+        case ..<1.7: return "high"
+        default:     return "super"
+        }
     }
 
     private var speedLabel: String {

@@ -29,6 +29,8 @@ final class Settings {
         static let collarStyle = "collarStyle"
         static let collarColor = "collarColorHex"
         static let bellColor = "bellColorHex"
+        static let selectedToy = "selectedToy"
+        static let jumpHeight = "jumpHeight"
     }
 
     /// Shipped defaults. The sprite PNGs carry placeholder key colours that the app
@@ -65,6 +67,8 @@ final class Settings {
             K.collarStyle: "bell",
             K.collarColor: DefaultColor.collar,
             K.bellColor: DefaultColor.bell,
+            K.selectedToy: "mouse",
+            K.jumpHeight: 1.0,
         ])
     }
 
@@ -188,6 +192,18 @@ final class Settings {
             NotificationCenter.default.post(name: Settings.paletteChanged, object: nil)
             changed()
         }
+    }
+
+    /// mouse | ball | feather — the toy dropped by the toy control.
+    var selectedToy: String {
+        get { d.string(forKey: K.selectedToy) ?? "mouse" }
+        set { d.set(newValue, forKey: K.selectedToy); changed() }
+    }
+
+    /// How high he can leap, 0.5...2.0 (1.0 = default).
+    var jumpHeight: Double {
+        get { let v = d.double(forKey: K.jumpHeight); return v == 0 ? 1.0 : min(2.0, max(0.5, v)) }
+        set { d.set(newValue, forKey: K.jumpHeight); changed() }
     }
 
     /// none | band | bell | bowtie | bandana — swaps the sprite sheets.

@@ -58,22 +58,24 @@ final class PetBrain {
     enum Mode: String { case roam, followCursor, followWindow, rest }
     var mode: Mode { Mode(rawValue: settings.companionMode) ?? .roam }
 
-    /// The mouse toy, if one is out. It flees him; he hunts it.
-    private(set) var mouse: CGPoint?
-    private(set) var mouseRunning = false
-    var mouseFacingRight: Bool { mouseVel >= 0 }
-    private(set) var mouseCaught = false
-    private var mouseVel: CGFloat = 0
-    private var mouseIdle: TimeInterval = 0
-    private var mousePause: TimeInterval = 0        // rests between darts
+    /// A placed toy, if one is out. The user drops it; he goes to reach it.
+    private(set) var mouse: CGPoint?                // the toy's position
+    private(set) var mouseRunning = false           // whether the toy sprite animates
+    private var toyFacingRight = true
+    var mouseFacingRight: Bool { toyFacingRight }
+    let mouseCaught = false                          // kept for the debug trace
+    private(set) var toyKind = "mouse"              // mouse | ball | feather
+    private var toySurface: Surface?               // the ledge it sits on, nil = floor
+    private var toyReachable = true
+    private var toyReached = false
+    private var toyTryTime: TimeInterval = 0        // time spent failing to reach it
+    private var reachingToy = false                // lets him land on a toy's ledge
+    /// A lasting sulk when he can't reach a toy — cleared only by petting him.
+    private(set) var angryMood = false
+    private var angryPromptCd: TimeInterval = 0
+    private var angryTimeLeft: TimeInterval = 0    // he gets over it on his own eventually
     private var pounceCooldown: TimeInterval = 0
-
-    // Every hunt gets its own tempo, so no two chases feel the same.
-    private var mouseFleeCap: CGFloat = 170         // this mouse's top speed
-    private var catHuntMul: CGFloat = 3.4           // this cat's sprint multiplier
-    /// The ledge the mouse is scurrying along, or nil for the floor.
-    private var mouseSurface: Surface?
-    private var mouseClimbCooldown: TimeInterval = 0
+    private var catHuntMul: CGFloat = 3.4           // his pursuit sprint multiplier
 
     /// The ledge he is standing on. nil means the screen floor.
     private(set) var perch: Surface?
@@ -163,7 +165,7 @@ final class PetBrain {
 
     /// The highest ledge crossed on the way down between two heights.
     private func landing(at x: CGFloat, from highY: CGFloat, to lowY: CGFloat) -> Surface? {
-        let candidates = settings.perchOnWindows
+        let candidates = (settings.perchOnWindows || reachingToy)
             ? surfaces.supports(at: x, groundY: groundY, screen: currentScreen)
             : [Surface(minX: currentScreen.visibleFrame.minX,
                        maxX: currentScreen.visibleFrame.maxX,
@@ -177,16 +179,13 @@ final class PetBrain {
     private func jumpTarget() -> Surface? {
         guard settings.perchOnWindows, perch == nil else { return nil }
         return surfaces.supports(at: position.x, groundY: groundY, screen: currentScreen)
-            .filter { !$0.isGround && $0.y > position.y + 40 && $0.y < position.y + 280 }
+            .filter { !$0.isGround && $0.y > position.y + 40 && $0.y < position.y + maxJump }
             .min { $0.y < $1.y }          // the lowest reachable one
     }
 
     private func tryJumpToWindow() -> Bool {
         guard let target = jumpTarget() else { return false }
-        // Enough upward velocity to clear the ledge with a little to spare.
-        velocity = CGVector(dx: 0, dy: sqrt(2 * gravity * (target.y - position.y + 30)))
-        perch = nil
-        enter(.fall, for: 6)
+        leap(toHeight: target.y - position.y + 30)
         return true
     }
 
@@ -195,6 +194,18 @@ final class PetBrain {
         velocity = CGVector(dx: dx, dy: 0)
         fallPeakY = position.y
         enter(.fall, for: 6)
+    }
+
+    /// How high he can leap, in points — the base scaled by the jump-height setting.
+    var maxJump: CGFloat { 300 * CGFloat(settings.jumpHeight) }
+
+    /// An upward leap to `height` points, showing the jump animation (vs the flail
+    /// of a fall). Lands via the same physics.
+    private func leap(toHeight height: CGFloat, dx: CGFloat = 0) {
+        perch = nil
+        velocity = CGVector(dx: dx, dy: sqrt(2 * gravity * max(20, height)))
+        fallPeakY = position.y
+        enter(.jump, for: 6)
     }
 
     /// Drops him if the window he was standing on has moved, closed, or scrolled away.
@@ -249,6 +260,11 @@ final class PetBrain {
             if speechRemaining <= 0 { speech = nil }
         }
 
+        if angryMood {
+            angryTimeLeft -= dt
+            if angryTimeLeft <= 0 { calmDown() }
+        }
+
         if bowlLingering > 0 {
             bowlLingering -= dt
             if bowlLingering <= 0 { bowl = nil }
@@ -284,11 +300,12 @@ final class PetBrain {
 
         switch state {
         case .idle:   tickIdle()
-        case .walk:   tickWalk(dt)
+        case .walk:   if mouse == nil || toyReached { tickWalk(dt) }
         case .sit, .groom: tickResting()
         case .sleep:  tickSleep(dt)
         case .drag:   break                 // position is driven by the mouse
         case .fall:   tickFall(dt)
+        case .jump:   tickFall(dt)
         case .happy:  if stateElapsed > 1.8 { enter(.idle) }
         case .eat:    tickEat()
 
@@ -316,8 +333,13 @@ final class PetBrain {
             }
         case .run:    tickRun(dt)
         case .pounce: tickPounce(dt)
+        case .play:
+            if stateElapsed > stateDuration {
+                if toyReached { removeMouse(); toyReached = false }
+                enter(.idle, for: .random(in: 1...2))
+            }
         case .love, .angry, .curious, .surprise, .purr,
-             .flop, .rollover, .arch, .beg, .sniff, .play, .knead, .blep, .chatter, .rub,
+             .flop, .rollover, .arch, .beg, .sniff, .knead, .blep, .chatter, .rub,
              .stargaze, .bellyplay:
             if stateElapsed > stateDuration { enter(.idle, for: .random(in: 1...2)) }
         }
@@ -359,7 +381,7 @@ final class PetBrain {
     /// looping: a squash, a stretch, a yawn.
     private var isOneShot: Bool {
         switch state {
-        case .fall, .land, .stretch, .yawn, .surprise, .arch, .pounce, .rollover, .stargaze:
+        case .fall, .land, .stretch, .yawn, .surprise, .arch, .pounce, .rollover, .stargaze, .jump:
             return true
         default:
             return false
@@ -391,7 +413,7 @@ final class PetBrain {
     /// other modes already decide where he goes, and rest means leave him be.
     /// Returns true while it's actively in control.
     private func tickClingy(_ dt: TimeInterval) -> Bool {
-        guard settings.clingyEnabled, mode == .roam,
+        guard settings.clingyEnabled, mode == .roam, !angryMood,
               mouse == nil, bowl == nil, !isHeld else { isClingy = false; return false }
 
         switch state {
@@ -440,7 +462,7 @@ final class PetBrain {
     /// he's between actions (idle/sit) so it never interrupts an animation.
     private func applyMode(_ dt: TimeInterval) {
         // A mouse hunt overrides every mode until it's over.
-        if mouse != nil { huntMouse(); return }
+        if mouse != nil { pursueToy(dt); return }
         guard walkTarget == nil else { return }
         let restful: Set<PetState> = [.idle, .sit, .loaf, .groom]
 
@@ -514,6 +536,16 @@ final class PetBrain {
     }
 
     private func tickIdle() {
+        // A lasting sulk: he sits cross and glares now and then until he's petted.
+        if angryMood {
+            angryPromptCd -= 1.0 / 30.0
+            if angryPromptCd <= 0 {
+                angryPromptCd = .random(in: 4...8)
+                enter(.angry, for: 2.2)
+                if Bool.random() { say(["hmph", "grr"].randomElement()!, for: 2) }
+            }
+            return
+        }
         // In rest mode the idle antics are suppressed; applyMode keeps him settled.
         if mode == .rest { return }
         guard stateElapsed > stateDuration else { return }
@@ -655,7 +687,7 @@ final class PetBrain {
         switch finished {
         case .meal:    enter(.eat, for: 3.4)
         case .cursor:
-            if mouse != nil { enter(.idle, for: 0.2) }               // keep hunting
+            if mouse != nil { enter(.idle, for: 0.2) }               // keep after the toy
             else if mode == .followCursor { enter(.sit, for: 2) }
             else { enter(.curious, for: .random(in: 2...3.5)) }      // "what's this?"
         case .summons: enter(.sit, for: 8)
@@ -711,180 +743,145 @@ final class PetBrain {
         }
     }
 
-    // MARK: - Mouse toy
+    // MARK: - Toys
 
-    /// Drops a mouse a little way from him. It scurries; he hunts it.
-    func dropMouse() {
+    /// Places a toy where the user dropped it, snapped down onto the surface
+    /// beneath the point (a window top or the floor). The cat sets off to reach it.
+    func placeToy(at point: CGPoint, kind: String) {
         wake()
         isHeld = false
         cancelMeal()
+        angryMood = false
+        toyKind = kind
+        surfaces.refreshIfStale()
+
+        let x = clampToWalkable(point.x, on: currentScreen)
+        // fall the toy onto the highest surface at or below where it was dropped
+        let below = surfaces.supports(at: x, groundY: groundY, screen: currentScreen)
+            .filter { $0.y <= point.y + 10 }
+            .max { $0.y < $1.y }
+        let surface = below ?? Surface(minX: currentScreen.visibleFrame.minX,
+                                       maxX: currentScreen.visibleFrame.maxX,
+                                       y: groundY, isGround: true)
+        toySurface = surface.isGround ? nil : surface
+        mouse = CGPoint(x: x, y: surface.y)
+        toyFacingRight = x >= position.x
+        mouseRunning = kind == "mouse"
+        toyReached = false
+        toyTryTime = 0
+        // reachable from the floor, or a ledge within a leap's height of it
+        toyReachable = surface.isGround || (surface.y - groundY < maxJump + 40)
+        catHuntMul = .random(in: 2.8...3.8)
+        enter(.idle, for: 0.3)
+        say(toyReachable ? "!" : "hmm?", for: 1.2)
+    }
+
+    /// Convenience for the menu — drops the selected toy on the floor near him.
+    func dropMouse() {
         let f = currentScreen.visibleFrame
         let side: CGFloat = position.x > f.midX ? -1 : 1
-        mouse = CGPoint(x: clampToWalkable(position.x + side * 120, on: currentScreen),
-                        y: groundY)
-        // Fresh tempo for this chase — sometimes a fast slippery mouse and a quick
-        // cat, sometimes a lazy amble.
-        mouseFleeCap = .random(in: 140...215)
-        catHuntMul = .random(in: 2.8...4.3)
-        mouseVel = side * mouseFleeCap * 0.5
-        mouseRunning = true
-        mouseCaught = false
-        mouseIdle = 0
-        mouseSurface = nil
-        mouseClimbCooldown = 1.0
-        perch = nil
-        position.y = groundY
-        enter(.idle, for: 0.5)
-        say("!", for: 1.0)
+        placeToy(at: CGPoint(x: position.x + side * 130, y: groundY), kind: settings.selectedToy)
     }
 
     func removeMouse() {
         mouse = nil
-        mouseSurface = nil
+        toySurface = nil
         mouseRunning = false
+        reachingToy = false
     }
 
-    /// The mouse's own motion: flees when he's near, dithers when he's not,
-    /// occasionally darting the other way.
+    var hasToy: Bool { mouse != nil }
+
+    /// Placed toys stay put. Only the mouse gets a faint idle twitch as he nears.
     private func updateMouse(_ dt: TimeInterval) {
-        guard var m = mouse else { return }
-        if mouseCaught {
-            // Batted around near his paws, then it "escapes" and the hunt resets.
-            mouseIdle += dt
-            m.x = position.x + (facingRight ? 14 : -14)
-            mouse = m
-            if mouseIdle > 1.6 {
-                mouseCaught = false
-                mouseVel = (facingRight ? -1 : 1) * 150
-                mouseRunning = true
-                mouseIdle = 0
-            }
-            return
-        }
-
-        let f = currentScreen.visibleFrame
-        let dist = position.x - m.x
-        let near = abs(dist) < 120
-        if mouseClimbCooldown > 0 { mouseClimbCooldown -= dt }
-
-        if mousePause > 0 {
-            // frozen mid-scurry — this is the cat's chance to pounce
-            mousePause -= dt
-            mouseVel = 0
-            if near, abs(dist) < 90 {                 // he got close: bolt again
-                mousePause = 0
-                mouseVel = (dist > 0 ? -1 : 1) * mouseFleeCap
-            }
-        } else if near {
-            let flee: CGFloat = dist > 0 ? -1 : 1
-            // A little random jitter in the flee force so darts aren't uniform.
-            mouseVel += flee * .random(in: 260...360) * CGFloat(dt)
-            mouseVel = max(-mouseFleeCap, min(mouseFleeCap, mouseVel))
-            tryMouseClimb(near: true)
-        } else {
-            // out of range: dart a short way, then stop and twitch
-            mouseVel *= 0.86
-            if abs(mouseVel) < 14 {
-                mousePause = .random(in: 0.4...1.1)   // the pause that lets him catch up
-            }
-        }
-        m.x += mouseVel * CGFloat(dt)
-
-        // Stay on the current surface; fall off its ends back to the floor.
-        if let ledge = mouseSurface {
-            let inset: CGFloat = 6
-            if m.x < ledge.minX + inset || m.x > ledge.maxX - inset || !surfaces.stillExists(ledge, at: m.x) {
-                mouseSurface = nil                     // scurries off the edge
-            }
-        }
-        let mouseFloor = mouseSurface?.y ?? groundY
-        let bounds = mouseSurface.map { ($0.minX, $0.maxX) } ?? (f.minX + min(edgeMargin, f.width / 2 - 1),
-                                                                 f.maxX - min(edgeMargin, f.width / 2 - 1))
-        if m.x < bounds.0 { m.x = bounds.0; mouseVel = abs(mouseVel) }
-        if m.x > bounds.1 { m.x = bounds.1; mouseVel = -abs(mouseVel) }
-        m.y = mouseFloor
-        mouse = m
-        mouseRunning = abs(mouseVel) > 20
-    }
-
-    /// The mouse sometimes bolts up onto a window ledge to escape — or drops off
-    /// one it's cornered on. Adds a vertical dimension to the chase.
-    private func tryMouseClimb(near: Bool) {
-        // Only go vertical when climbing is enabled — otherwise the mouse could
-        // flee onto a ledge the cat isn't allowed to follow it up.
-        guard settings.perchOnWindows, mouseClimbCooldown <= 0, let m = mouse else { return }
-        surfaces.refreshIfStale()
-
-        if mouseSurface == nil {
-            // On the floor and cornered: hop up onto a nearby low ledge.
-            let up = surfaces.supports(at: m.x, groundY: groundY, screen: currentScreen)
-                .filter { !$0.isGround && $0.y > groundY + 30 && $0.y < groundY + 360 }
-                .min { $0.y < $1.y }
-            if let ledge = up, near, Double.random(in: 0...1) < 0.55 {
-                mouseSurface = ledge
-                mouseVel = (mouseVel >= 0 ? 1 : -1) * mouseFleeCap
-                mouseClimbCooldown = 1.4
-            }
-        } else if Double.random(in: 0...1) < 0.2 {
-            mouseSurface = nil                         // decides to leap back down
-            mouseClimbCooldown = 1.4
+        guard let ledge = toySurface, let m = mouse else { return }
+        // if the window the toy sat on has gone, the toy drops to the floor
+        if !surfaces.stillExists(ledge, at: m.x) {
+            toySurface = nil
+            mouse = CGPoint(x: m.x, y: groundY)
+            toyReachable = true
         }
     }
 
-    /// His side of the hunt: sprint after it, pounce when close, catch and play.
-    private func huntMouse() {
-        guard let m = mouse, !mouseCaught else { return }
-        // Don't yank him out of the pounce/play beats or a reaction.
+    /// The cat pursues the placed toy: walk to it, leap up to a ledge, pounce and
+    /// play when he reaches it — or, if he just can't get to it, tire and sulk.
+    private func pursueToy(_ dt: TimeInterval) {
+        guard let t = mouse, !toyReached else { return }
         guard state == .idle || state == .walk || state == .sit else { return }
 
-        let dist = m.x - position.x
+        let dist = t.x - position.x
+        let heightGap = t.y - position.y
         facingRight = dist >= 0
-        let heightGap = m.y - position.y
 
-        // Follow the mouse up onto a ledge, or drop off one after it — only when
-        // climbing is on (then a landing surface actually exists up there).
-        if settings.perchOnWindows, heightGap > 40, abs(dist) < 70, heightGap < 420 {
-            // roughly beneath its ledge — leap up
-            velocity = CGVector(dx: 0, dy: sqrt(2 * gravity * (heightGap + 26)))
-            perch = nil
-            enter(.fall, for: 6)
-            return
-        }
-        if heightGap < -40, perch != nil {
-            startFalling(dx: dist > 0 ? 120 : -120)   // hop down to keep chasing
+        // Alongside and on the same level — pounce on it.
+        if abs(dist) < 46, abs(heightGap) < 26 {
+            if pounceCooldown <= 0 {
+                enter(.pounce, for: clipDuration(.pounce))
+                pounceCooldown = 1.0
+            }
             return
         }
 
-        // Same level: pounce when close (and actually alongside, not just aligned in x).
-        if abs(dist) < 46, abs(heightGap) < 24, pounceCooldown <= 0 {
-            enter(.pounce, for: clipDuration(.pounce))
-            pounceCooldown = 1.0
+        if heightGap > 40 {                              // the toy is up high
+            if toyReachable, abs(dist) < 70, heightGap < maxJump + 30 {
+                reachingToy = true
+                leap(toHeight: heightGap + 30)
+                return
+            }
+            if !toyReachable {                           // beneath it, but out of reach
+                toyTryTime += dt
+                if abs(dist) < 60, pounceCooldown <= 0, state != .jump {
+                    leap(toHeight: min(maxJump, 150))    // a hopeful hop that falls short
+                    pounceCooldown = 1.5
+                }
+                if toyTryTime > 9 { frustrate(); return }
+            }
+        } else if heightGap < -40, perch != nil {
+            startFalling(dx: dist > 0 ? 120 : -120)      // hop down after a toy below
             return
         }
 
-        // Sprint after it at this hunt's own pace.
-        walkTarget = clampToWalkable(m.x, on: currentScreen)
-        errand = .mouse
-        errandElapsed = 0
+        // Walk straight to it — driven here directly so it can't fight the ordinary
+        // wander/errand walking (tickWalk is skipped while pursuing, below).
         if state != .walk { enter(.walk, for: 30) }
+        walkTarget = nil
+        errand = nil
+        let step = baseSpeed * catHuntMul * CGFloat(dt)
+        position.x = min(max(position.x + (dist > 0 ? step : -step),
+                             walkableRange.lo), walkableRange.hi)
+        position.y = supportY
     }
 
-    /// End of a pounce that was aimed at the mouse.
+    /// He gives up on an unreachable toy and stays cross until he's petted.
+    private func frustrate() {
+        removeMouse()
+        angryMood = true
+        angryPromptCd = .random(in: 3...6)
+        angryTimeLeft = .random(in: 20...35)        // sulks a while, then lets it go
+        enter(.angry, for: 2.6)
+        say(["hmph", "grr", "\u{2639}", "can't reach!"].randomElement()!, for: 3)
+    }
+
+    /// He gets over the sulk by himself when the cooldown runs out.
+    private func calmDown() {
+        angryMood = false
+        enter(.stretch, for: clipDuration(.stretch))   // a shake-it-off stretch
+        say(["hmf", "…", "fine"].randomElement()!, for: 2)
+    }
+
+    /// Resolves a pounce aimed at the toy.
     private func pounceResolve() {
-        guard let m = mouse else { enter(.idle, for: 1); return }
-        if abs(m.x - position.x) < 40, abs(m.y - position.y) < 26 {
-            mouseCaught = true
-            mouseRunning = false
-            mouseIdle = 0
-            enter(.play, for: .random(in: 1.4...2.4))
-            say(["got it!", "\u{2665}"].randomElement()!, for: 1.4)
+        guard let t = mouse else { enter(.idle, for: 1); return }
+        if abs(t.x - position.x) < 46, abs(t.y - position.y) < 28 {
+            toyReached = true
+            enter(.play, for: .random(in: 1.8...2.8))
+            say(["got it!", "\u{2665}", "mine!", "gotcha"].randomElement()!, for: 1.6)
         } else {
-            enter(.idle, for: 0.4)     // missed; the hunt continues next tick
+            enter(.idle, for: 0.4)                       // missed; keep after it
         }
     }
 
     private func tickPounce(_ dt: TimeInterval) {
-        // Drive forward a little during the leap.
         let step = baseSpeed * 2.4 * CGFloat(dt)
         position.x += facingRight ? step : -step
         position.x = min(max(position.x, walkableRange.lo), walkableRange.hi)
@@ -947,6 +944,7 @@ final class PetBrain {
         if abs(velocity.dx) > 20 { facingRight = velocity.dx >= 0 }
         velocity = .zero
         fallPeakY = position.y
+        reachingToy = false
 
         if dragJerks >= 5 {
             dragJerks = 0
@@ -1118,6 +1116,15 @@ final class PetBrain {
     /// A click on the cat that wasn't a drag. Repeated affection warms him up:
     /// a wave, then hearts, then a full purr.
     func pet() {
+        if angryMood {                              // a pet calms him instantly
+            angryMood = false
+            angryTimeLeft = 0
+            enter(.love, for: 1.8)
+            say("\u{2665}", for: 1.8)
+            recentPets = 1
+            lastPetAt = CFAbsoluteTimeGetCurrent()
+            return
+        }
         let now = CFAbsoluteTimeGetCurrent()
         recentPets = (now - lastPetAt < 4) ? recentPets + 1 : 1
         lastPetAt = now
@@ -1255,6 +1262,17 @@ final class PetBrain {
         }
     }
 
+    /// Testing hook: places a toy either on the floor (reachable) or very high
+    /// (unreachable, to drive frustration). Optionally pets him after a delay.
+    func debugPlaceToy(reachable: Bool) {
+        if reachable {
+            placeToy(at: CGPoint(x: position.x + 160, y: groundY), kind: "ball")
+        } else {
+            placeToy(at: CGPoint(x: position.x, y: groundY + 1400), kind: "feather")
+        }
+    }
+    func debugPetNow() { pet() }
+
     /// Testing hook: puts him to sleep, then parks the synthetic cursor over him
     /// so the disturbance-wake can be verified without a real hand on the mouse.
     func debugSleepDisturb() {
@@ -1289,17 +1307,11 @@ final class PetBrain {
             let lowest = surfaces.surfaces.map { Int($0.y - groundY) }.min() ?? -1
             return "no reachable low ledge (lowest window top is \(lowest)px up; a leap reaches ~400)"
         }
-        wake(); isHeld = false; cancelMeal()
-        // cat on the floor beneath the ledge
+        // put the cat under the ledge and a toy up on it
         position = CGPoint(x: (ledge.minX + ledge.maxX) / 2, y: groundY)
         perch = nil
-        mouse = CGPoint(x: position.x, y: ledge.y)     // mouse already up top
-        mouseSurface = ledge
-        mouseFleeCap = 150; catHuntMul = 3.4
-        mouseVel = 60; mouseRunning = true; mouseCaught = false
-        mouseClimbCooldown = 2.0
-        enter(.idle, for: 0.4)
-        return "ledge top=\(Int(ledge.y)) floor=\(Int(groundY)) gap=\(Int(ledge.y - groundY))"
+        placeToy(at: CGPoint(x: position.x, y: ledge.y), kind: "mouse")
+        return "ledge top=\(Int(ledge.y)) floor=\(Int(groundY)) gap=\(Int(ledge.y - groundY)) reachable=\(toyReachable)"
     }
 
     /// Testing hook: parks a synthetic cursor right beside him and reports whether

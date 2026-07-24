@@ -775,6 +775,44 @@ def draw_stargaze(cv, p):
         cv.put_late(tx, ty, STAR)
 
 
+BALL_W, BALL_H = 14, 14
+def draw_ball():
+    """A little play ball with a highlight — 2 frames for a gentle wobble."""
+    frames = []
+    for f in range(2):
+        cv = Canvas(BALL_W, BALL_H)
+        cx, cy = BALL_W / 2 - 0.5, BALL_H / 2 + (0.0 if f == 0 else -0.6)
+        BALL   = (206, 116, 96, 255)
+        BALL_D = (156, 78, 62, 255)
+        cv.ellipse(cx, cy, 5.2, 5.2, BALL)
+        cv.ellipse(cx + 1.4, cy + 1.4, 3.2, 3.2, BALL_D)   # shaded underside
+        cv.ellipse(cx - 1.6, cy - 1.8, 1.6, 1.6, (240, 190, 170, 255))  # highlight
+        outline_pass(cv)
+        frames.append(cv.to_image())
+    return frames
+
+FEATHER_W, FEATHER_H = 16, 16
+def draw_feather():
+    """A feather toy — 2 frames for a little flutter."""
+    frames = []
+    for f in range(2):
+        cv = Canvas(FEATHER_W, FEATHER_H)
+        tilt = 0.0 if f == 0 else 1.0
+        FTHR   = (150, 176, 214, 255)
+        FTHR_D = (104, 128, 168, 255)
+        QUILL  = (196, 176, 120, 255)
+        # quill from bottom up
+        cv.taper(6, FEATHER_H - 1, 8 + tilt, 4, 1.4, 0.8, QUILL)
+        # plume
+        for i in range(6):
+            yy = 4 + i * 1.4
+            w = 3.0 - i * 0.35
+            cv.ellipse(8 + tilt - i * 0.2, yy, w, 1.2, FTHR if i % 2 else FTHR_D)
+        outline_pass(cv)
+        frames.append(cv.to_image())
+    return frames
+
+
 # ------------------------------------------------------------- animations ---
 
 def frame(fn, p):
@@ -1277,6 +1315,41 @@ def draw_bellyplay(cv, p):
         cv.put(hx + 2.6, hy + 3.4, PINK)
 
 
+def draw_jump(cv, p):
+    """A springy upward leap: body stretched tall, front paws reaching up, hind
+    legs kicking down, tail streaming. Used for jumping to ledges and toys."""
+    bx, by = p["bx"], p["by"]
+    ext = p.get("ext", 1.0)
+    draw_tail(cv, bx - 5.2, by + 3.0, -1.2, 0.14, length=2.0)   # tail trailing down
+    # hind legs kicked down and back
+    for dx, dy, c in ((-3.6, 3.0, DARK), (-2.0, 3.8, MID)):
+        cv.taper(bx + dx, by + 1.0, bx + dx - 1.4, by + dy + 3.0 * ext, 2.7, 2.1, c)
+        cv.ellipse(bx + dx - 1.6, by + dy + 3.2 * ext, 1.7, 1.2, c)
+    # body reaching upward (tall, slim)
+    cv.ellipse(bx, by - ext * 1.2, 4.6, 6.4, MID)
+    cv.ellipse(bx + 1.0, by - 4.0 * ext, 4.2, 4.0, MID)          # chest up
+    # front paws stretched up over the head
+    for dx, c in ((-1.2, MID), (1.6, DARK)):
+        cv.taper(bx + dx, by - 5.0 * ext, bx + dx + 0.6, by - 9.4 * ext, 2.4, 1.9, c)
+        cv.ellipse(bx + dx + 0.6, by - 9.8 * ext, 1.7, 1.4, LIGHT)
+    hx, hy = p["hx"], p["hy"]
+    cv.taper(bx + 1.6, by - 5.6 * ext, hx - 1.2, hy + 3.0, 4.4, 4.0, MID)
+    draw_head(cv, hx, hy, 1.0, 0.0, 1, 0.0, flat=0.2)
+    draw_collar(cv, hx - 2.4, hy + 4.2)
+
+
+def anim_jump(n=4):
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        ext = 0.5 + 0.5 * math.sin(min(1, t * 1.2) * math.pi)   # stretch at apex
+        out.append(frame(draw_jump, {
+            "bx": 18.0, "by": BY - 3.0, "hx": HX, "hy": HY - 5.0 - ext * 2.0,
+            "ext": ext,
+        }))
+    return out
+
+
 def anim_stargaze(n=10):
     """A shooting star crosses the top, then a wish sparkle twinkles."""
     out = []
@@ -1339,6 +1412,7 @@ ANIMS = {
     "rub":      (anim_rub,     130),
     "stargaze": (anim_stargaze, 150),
     "bellyplay": (anim_bellyplay, 110),
+    "jump":     (anim_jump,     80),
 }
 
 
@@ -1381,6 +1455,20 @@ def main():
     mouse_sheet.paste(draw_mouse(True), (MOUSE_W, 0))
     mouse_sheet.save(os.path.join(outdir, "mouse.png"))
     manifest["mouse"] = {"w": MOUSE_W, "h": MOUSE_H}
+
+    for name, (w, h, frames) in {
+        "ball": (BALL_W, BALL_H, draw_ball()),
+        "feather": (FEATHER_W, FEATHER_H, draw_feather()),
+    }.items():
+        sheet = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
+        for i, fr in enumerate(frames):
+            sheet.paste(fr, (i * w, 0))
+        sheet.save(os.path.join(outdir, f"toy_{name}.png"))
+    manifest["toys"] = {
+        "mouse": {"w": MOUSE_W, "h": MOUSE_H},
+        "ball": {"w": BALL_W, "h": BALL_H},
+        "feather": {"w": FEATHER_W, "h": FEATHER_H},
+    }
 
     with open(os.path.join(outdir, "sprites.json"), "w") as f:
         json.dump(manifest, f, indent=2)

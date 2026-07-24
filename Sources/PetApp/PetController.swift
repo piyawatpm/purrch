@@ -9,6 +9,7 @@ final class PetController: NSObject {
     private let window = PetWindow()
     private let bowlWindow = BowlWindow()
     private let mouseWindow = MouseWindow()
+    private let toyOverlay = ToyPlacementOverlay()
     private let view: PetView
     private let popover = NSPopover()
     private let controlPopover = NSPopover()
@@ -52,8 +53,7 @@ final class PetController: NSObject {
                       "bowl=\(self.brain.bowl.map { Int($0.x) }.map(String.init) ?? "nil")  " +
                       "mouse=\(self.brain.mouse.map { Int($0.x) }.map(String.init) ?? "nil")  " +
                       "caught=\(self.brain.mouseCaught)  clingy=\(self.brain.isClingy)  " +
-                      "full=\(self.brain.bowlFull)  collar=\(SpriteLibrary.shared.loadedStyle)  " +
-                      "speech=\(self.brain.speech ?? "nil")")
+                      "full=\(self.brain.bowlFull)  collar=\(SpriteLibrary.shared.loadedStyle)")
             }
             self.window.invalidateCursorRects(for: view)
             if state == .happy { Sounds.shared.play(.meow) }
@@ -124,7 +124,7 @@ final class PetController: NSObject {
         }
 
         if let mouse = brain.mouse {
-            mouseWindow.show(at: mouse, running: brain.mouseRunning,
+            mouseWindow.show(at: mouse, kind: brain.toyKind, running: brain.mouseRunning,
                              facingRight: brain.mouseFacingRight, scale: settings.scale)
         } else {
             mouseWindow.hide()
@@ -178,7 +178,7 @@ final class PetController: NSObject {
         let actions = PetControlActions(
             comeHere: { [weak self] in self?.comeHere() },
             feed:     { [weak self] in self?.feed() },
-            dropMouse:{ [weak self] in self?.dropMouse() },
+            placeToy: { [weak self] in self?.startPlacingToy() },
             sit:      { [weak self] in self?.sitNow() },
             sleep:    { [weak self] in self?.sleepNow() },
             hide:     { [weak self] in self?.toggleHidden() },
@@ -194,6 +194,14 @@ final class PetController: NSObject {
     }
 
     func dropMouse() { brain.dropMouse() }
+
+    /// Arms placement mode: the next click drops the selected toy there.
+    func startPlacingToy() {
+        toyOverlay.begin(kind: settings.selectedToy) { [weak self] point in
+            guard let self else { return }
+            self.brain.placeToy(at: point, kind: self.settings.selectedToy)
+        }
+    }
 
     /// Plays a named animation on the cat — used by the Animation Tester.
     func playAnimation(_ name: String) {

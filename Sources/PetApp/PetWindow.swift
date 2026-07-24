@@ -118,7 +118,40 @@ final class PetView: NSView {
 
         ctx.setShouldAntialias(true)
         drawHearts(ctx)
+        if brain.state == .sleep { drawSleepZs(ctx) }
         if let speech = brain.speech { drawBubble(ctx, text: speech) }
+    }
+
+    /// Floating "z"s that rise and fade above him while he sleeps — the clearest
+    /// signal that he's actually asleep, not just curled up. Driven off wall-clock
+    /// time so it animates smoothly regardless of the sprite's frame rate.
+    private func drawSleepZs(_ ctx: CGContext) {
+        let now = CFAbsoluteTimeGetCurrent()
+        let period = 1.5
+        let count = 3
+        // his curled head sits toward the right of the sprite; start there.
+        let originX = spriteRect.minX + spriteRect.width * (brain.facingRight ? 0.66 : 0.34)
+        let originY = spriteRect.minY + spriteRect.height * 0.52
+
+        for i in 0..<count {
+            let phase = (now / period + Double(i) / Double(count)).truncatingRemainder(dividingBy: 1)
+            let rise = CGFloat(phase)
+            let alpha = sin(phase * .pi)                       // fade in then out
+            guard alpha > 0.03 else { continue }
+            let size = 9.0 + rise * 9.0
+            let drift: CGFloat = brain.facingRight ? 1 : -1
+            let p = CGPoint(x: originX + drift * (6 + rise * 16),
+                            y: originY + rise * 34)
+
+            let font = NSFont.systemFont(ofSize: size, weight: .bold)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: NSColor(calibratedWhite: 0.86, alpha: alpha * 0.9),
+            ]
+            let z = NSAttributedString(string: "z", attributes: attrs)
+            let zSize = z.size()
+            z.draw(at: CGPoint(x: p.x - zSize.width / 2, y: p.y))
+        }
     }
 
     private func drawHearts(_ ctx: CGContext) {

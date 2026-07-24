@@ -233,9 +233,13 @@ final class PetController: NSObject {
         let now = Date()
         guard now.timeIntervalSince(lastTimeCheck) > 60 else { return }
         lastTimeCheck = now
-        guard settings.greetingsEnabled else { return }
         let hour = Calendar.current.component(.hour, from: now)
-        brain.considerTimeOfDay(hour: hour, atKeyboard: brain.cachedIdleSeconds() < 90)
+        let atKeyboard = brain.cachedIdleSeconds() < 90
+        // The special night moment isn't gated on the greetings toggle — it's a
+        // quiet rare treat, not a nudge.
+        brain.considerSpecial(hour: hour, atKeyboard: atKeyboard)
+        guard settings.greetingsEnabled else { return }
+        brain.considerTimeOfDay(hour: hour, atKeyboard: atKeyboard)
     }
 
     /// Restart the break interval, e.g. after the user changes it in Settings.

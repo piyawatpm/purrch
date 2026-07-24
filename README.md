@@ -70,7 +70,11 @@ Settings or the menu if you'd rather he kept his distance.
 - Yank him around roughly and he lands cross, with an anger mark
 - Drop him from a height and he squashes on impact; drop him from *really* high
   and he sits dazed with birdies circling
-- He wakes with a stretch and yawns before falling asleep
+- He wakes with a stretch and yawns before falling asleep — and floating "z"s
+  drift up while he sleeps
+- **Rare & special:** on the stroke of midnight (or, once in a while, any other
+  late-night hour) he sits and watches a shooting star cross overhead, and makes
+  a little wish. At most once a night, only if you're there to see it.
 - Trots over to investigate the cursor with a curious "?"
 - Says hello at morning, lunch, and late night — once per slot, only when you're
   actually at the keyboard

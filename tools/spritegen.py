@@ -752,6 +752,29 @@ def draw_mouse(run):
     return cv.to_image()
 
 
+def draw_stargaze(cv, p):
+    """Sits gazing up while a shooting star streaks overhead. A rare night moment."""
+    # the sitting body, ears up, eyes wide and looking up
+    draw_sit(cv, {"bx": p["bx"], "by": p["by"], "hx": p["hx"], "hy": p["hy"],
+                  "tail_a": 3.20, "tail_curl": 0.36, "eye": p.get("eye", 1.0),
+                  "look": 0.2})
+    # a small crescent moon, fixed top-left
+    cv.ellipse(6.6, 4.4, 2.4, 2.4, STAR)          # moon disc
+    cv.ellipse(8.2, 3.8, 2.2, 2.2, OUTLINE)       # bite out of it -> crescent
+    # fixed faint stars
+    for (tx, ty) in [(15, 3), (33, 6), (22, 2)]:
+        cv.put_late(tx, ty, RIM)
+    # the shooting star + its trail, sweeping left to right across the top
+    sx = p.get("starx")
+    if sx is not None:
+        cv.put_late(sx, 3, STAR)
+        for i in range(1, 5):
+            cv.put_late(sx - i * 1.5, 3 + i * 0.6, RIM)
+    # a wish sparkle above his head near the end
+    for (tx, ty) in p.get("sparkles", []):
+        cv.put_late(tx, ty, STAR)
+
+
 # ------------------------------------------------------------- animations ---
 
 def frame(fn, p):
@@ -1220,6 +1243,21 @@ def anim_rub(n=6):
     return out
 
 
+def anim_stargaze(n=10):
+    """A shooting star crosses the top, then a wish sparkle twinkles."""
+    out = []
+    for i in range(n):
+        t = i / (n - 1)
+        starx = 3 + t * 34 if t < 0.72 else None
+        sparkles = [(28, 5), (30, 3)] if (t >= 0.72 and i % 2 == 0) else \
+                   ([(29, 4)] if t >= 0.72 else [])
+        out.append(frame(draw_stargaze, {
+            "bx": 17.5, "by": 18.6, "hx": 25.5, "hy": 10.2,
+            "eye": 1.0, "starx": starx, "sparkles": sparkles,
+        }))
+    return out
+
+
 ANIMS = {
     "idle":  (anim_idle,  140),
     "walk":  (anim_walk,   90),
@@ -1254,6 +1292,7 @@ ANIMS = {
     "blep":     (anim_blep,    260),
     "chatter":  (anim_chatter,  90),
     "rub":      (anim_rub,     130),
+    "stargaze": (anim_stargaze, 150),
 }
 
 

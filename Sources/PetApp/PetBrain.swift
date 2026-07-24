@@ -312,7 +312,8 @@ final class PetBrain {
         case .run:    tickRun(dt)
         case .pounce: tickPounce(dt)
         case .love, .angry, .curious, .surprise, .purr,
-             .flop, .rollover, .arch, .beg, .sniff, .play, .knead, .blep, .chatter, .rub:
+             .flop, .rollover, .arch, .beg, .sniff, .play, .knead, .blep, .chatter, .rub,
+             .stargaze:
             if stateElapsed > stateDuration { enter(.idle, for: .random(in: 1...2)) }
         }
 
@@ -323,7 +324,7 @@ final class PetBrain {
     /// looping: a squash, a stretch, a yawn.
     private var isOneShot: Bool {
         switch state {
-        case .fall, .land, .stretch, .yawn, .surprise, .arch, .pounce, .rollover:
+        case .fall, .land, .stretch, .yawn, .surprise, .arch, .pounce, .rollover, .stargaze:
             return true
         default:
             return false
@@ -1118,6 +1119,25 @@ final class PetBrain {
     }
 
     func sitNow() { enter(.sit, for: .random(in: 6...12)) }
+
+    private var stargazedThisNight = false
+
+    /// A rare, special night moment. On the stroke of midnight a black cat can't
+    /// help but look up — or, once in a while any other night hour, a shooting
+    /// star catches his eye. At most once a night, and never mid-task.
+    func considerSpecial(hour: Int, atKeyboard: Bool) {
+        if hour == 12 { stargazedThisNight = false }        // reset the nightly lock by day
+        guard atKeyboard, state == .idle || state == .sit, !stargazedThisNight else { return }
+        let isNight = hour >= 20 || hour <= 4
+        guard isNight else { return }
+
+        let atMidnight = (hour == 0)
+        guard atMidnight || Int.random(in: 0..<40) == 0 else { return }   // rare outside midnight
+        stargazedThisNight = true
+        wake()
+        enter(.stargaze, for: clipDuration(.stargaze) + 2.0)
+        say(["make a wish", "\u{2727}", "\u{2606}"].randomElement()!, for: 4)
+    }
 
     /// Time-of-day moment. Called about once a minute; fires at most once per hour
     /// slot and only when he's idle so it never interrupts anything.

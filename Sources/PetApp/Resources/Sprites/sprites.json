@@ -134,6 +134,10 @@
     "rub": {
       "frames": 6,
       "msPerFrame": 130
+    },
+    "stargaze": {
+      "frames": 10,
+      "msPerFrame": 150
     }
   },
   "collarStyles": [

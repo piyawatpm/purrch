@@ -281,7 +281,7 @@ final class PetBrain {
         case .idle:   tickIdle()
         case .walk:   tickWalk(dt)
         case .sit, .groom: tickResting()
-        case .sleep:  tickSleep()
+        case .sleep:  tickSleep(dt)
         case .drag:   break                 // position is driven by the mouse
         case .fall:   tickFall(dt)
         case .happy:  if stateElapsed > 1.8 { enter(.idle) }
@@ -866,11 +866,17 @@ final class PetBrain {
         say("\u{2665}", for: 1.6)
     }
 
-    private func tickSleep() {
-        // Auto-sleep (from being idle) wakes the moment you come back. A sleep you
-        // asked for stays put until you actually interact with him — otherwise the
-        // very click that put him to sleep would wake him again immediately.
-        if !manualSleep, cachedIdleSeconds() < 2 { wake() }
+    /// How long the cursor has hovered right over him while he sleeps.
+    private var disturbTime: TimeInterval = 0
+
+    private func tickSleep(_ dt: TimeInterval) {
+        // A sleeping cat sleeps through your work — distant activity doesn't wake
+        // him. But hover the cursor over him for a moment and he stirs, groggy.
+        let cursor = debugCursor ?? NSEvent.mouseLocation
+        let overHim = abs(cursor.x - position.x) < 95
+            && cursor.y >= groundY - 24 && cursor.y - groundY < 190
+        disturbTime = overHim ? disturbTime + dt : 0
+        if disturbTime > 2.0 { wakeGroggy() }
     }
 
     private func tickFall(_ dt: TimeInterval) {
@@ -1130,6 +1136,17 @@ final class PetBrain {
         enter(.stretch, for: clipDuration(.stretch))
     }
 
+    /// Woken by being pestered: a groggy yawn rather than a bright stretch. He's
+    /// slower and grumpier about it, and at night he may just doze straight off
+    /// again once you leave him alone.
+    private func wakeGroggy() {
+        disturbTime = 0
+        sleepy = false          // this yawn ends in sitting up, not going back under
+        manualSleep = false
+        enter(.yawn, for: clipDuration(.yawn))
+        say(["mrf", "...", "hnn"].randomElement()!, for: 2.5)
+    }
+
     func sitNow() { enter(.sit, for: .random(in: 6...12)) }
 
     private var stargazedThisNight = false
@@ -1174,11 +1191,39 @@ final class PetBrain {
 
     /// Called by the controller when the sleep-after-idle threshold is crossed.
     func considerSleeping() {
-        guard state != .drag, state != .fall, state != .sleep else { return }
-        let threshold = TimeInterval(settings.sleepMinutes * 60)
+        guard state != .drag, state != .fall, state != .sleep,
+              state != .yawn, mouse == nil, bowl == nil, !isHeld else { return }
+        // Time of day sets how easily he nods off: sleepy at night, stubborn by
+        // day. Even the daytime threshold is finite, so being ignored long enough
+        // still puts him under.
+        let threshold = TimeInterval(settings.sleepMinutes * 60) * sleepinessMultiplier()
         guard cachedIdleSeconds() >= threshold else { return }
         sleepy = true
         enter(.yawn, for: clipDuration(.yawn))
+    }
+
+    /// How the current hour scales the nap threshold. <1 = drops off sooner.
+    private var cachedHour = -1
+    private var hourSampledAt: CFAbsoluteTime = 0
+    private func sleepinessMultiplier() -> Double {
+        let now = CFAbsoluteTimeGetCurrent()
+        if cachedHour < 0 || now - hourSampledAt > 30 {
+            cachedHour = Calendar.current.component(.hour, from: Date())
+            hourSampledAt = now
+        }
+        switch cachedHour {
+        case 23, 0, 1, 2, 3, 4:  return 0.30    // deep night — sleepy easily
+        case 21, 22, 5:          return 0.55    // late evening / early morning
+        case 9, 10, 11, 14, 15, 16: return 1.7  // working hours — hard to sleep
+        default:                 return 1.0
+        }
+    }
+
+    /// Testing hook: puts him to sleep, then parks the synthetic cursor over him
+    /// so the disturbance-wake can be verified without a real hand on the mouse.
+    func debugSleepDisturb() {
+        forceSleep()
+        debugCursor = CGPoint(x: position.x, y: groundY + 40)
     }
 
     /// Testing hook: drops him just short of a screen edge and walks him into it,

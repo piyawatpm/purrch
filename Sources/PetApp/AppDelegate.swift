@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Lets a panel be opened straight from the command line, which is how the UI
         // gets exercised without clicking through the menu bar.
         let args = CommandLine.arguments
-        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel"]
+        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb"]
         if args.contains(where: debugFlags.contains) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 if args.contains("--tasks") { PanelWindows.shared.showTasks() }
@@ -62,6 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 if args.contains("--panel") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.debugShowControlPanel() }
+                }
+                if args.contains("--sleep-disturb") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugSleepDisturb() }
                 }
                 if args.contains("--complete-task"),
                    let open = TaskStore.shared.today.first(where: { !$0.isDone }) {

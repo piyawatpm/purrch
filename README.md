@@ -72,7 +72,9 @@ Settings or the menu if you'd rather he kept his distance.
 - Drop him from a height and he squashes on impact; drop him from *really* high
   and he sits dazed with birdies circling
 - He wakes with a stretch and yawns before falling asleep — and floating "z"s
-  drift up while he sleeps
+  drift up while he sleeps. He nods off **easily at night and stubbornly by day**
+  (time-of-day based), sleeps through your work, and only wakes when you hover
+  the cursor over him for a moment — groggily — or interact with him.
 - **Rare & special:** on the stroke of midnight (or, once in a while, any other
   late-night hour) he sits and watches a shooting star cross overhead, and makes
   a little wish. At most once a night, only if you're there to see it.

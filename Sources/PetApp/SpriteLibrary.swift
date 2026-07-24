@@ -187,6 +187,9 @@ final class SpriteLibrary {
     func toyFrames(_ kind: String) -> [CGImage] { toyFrames[kind] ?? toyFrames["mouse"] ?? [] }
     func toySize(_ kind: String) -> CGSize { toySizes[kind] ?? CGSize(width: 16, height: 12) }
 
+    /// All animation names, in a friendly order for the tester.
+    var animationNames: [String] { PetState.allCases.map { $0.rawValue } }
+
     func clip(_ state: PetState) -> AnimationClip {
         clips[state] ?? clips[.idle]!
     }

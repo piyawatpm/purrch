@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Lets a panel be opened straight from the command line, which is how the UI
         // gets exercised without clicking through the menu bar.
         let args = CommandLine.arguments
-        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble", "--toy-floor", "--toy-high", "--toy-sulk"]
+        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble", "--toy-floor", "--toy-high", "--toy-sulk", "--tester", "--toy-drop"]
         if args.contains(where: debugFlags.contains) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 if args.contains("--tasks") { PanelWindows.shared.showTasks() }
@@ -71,6 +71,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 if args.contains("--toy-floor") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugPlaceToy(reachable: true) }
+                }
+                if args.contains("--tester") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { controller.showAnimationTester() }
+                }
+                if args.contains("--toy-drop") {
+                    // drop a toy from high up in mid-air; it should fall to the floor
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        controller.brain.debugDropToyHigh()
+                    }
                 }
                 if args.contains("--toy-sulk") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { controller.brain.debugPlaceToy(reachable: false) }

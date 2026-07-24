@@ -70,6 +70,9 @@ final class PetBrain {
     private var toyReached = false
     private var toyTryTime: TimeInterval = 0        // time spent failing to reach it
     private var reachingToy = false                // lets him land on a toy's ledge
+    private var toyFalling = false                 // the toy is dropping under gravity
+    private var toyVelY: CGFloat = 0
+    private var toyLandY: CGFloat = 0              // the surface it will settle on
     /// A lasting sulk when he can't reach a toy — cleared only by petting him.
     private(set) var angryMood = false
     private var angryPromptCd: TimeInterval = 0
@@ -756,17 +759,22 @@ final class PetBrain {
         surfaces.refreshIfStale()
 
         let x = clampToWalkable(point.x, on: currentScreen)
-        // fall the toy onto the highest surface at or below where it was dropped
+        // the surface it will fall onto: the highest one at or below the drop point
         let below = surfaces.supports(at: x, groundY: groundY, screen: currentScreen)
-            .filter { $0.y <= point.y + 10 }
+            .filter { $0.y <= point.y + 4 }
             .max { $0.y < $1.y }
         let surface = below ?? Surface(minX: currentScreen.visibleFrame.minX,
                                        maxX: currentScreen.visibleFrame.maxX,
                                        y: groundY, isGround: true)
         toySurface = surface.isGround ? nil : surface
-        mouse = CGPoint(x: x, y: surface.y)
+        toyLandY = surface.y
+        // it starts falling from where you dropped it and drops onto that surface
+        let startY = max(point.y, surface.y)
+        mouse = CGPoint(x: x, y: startY)
+        toyFalling = startY > surface.y + 1
+        toyVelY = 0
         toyFacingRight = x >= position.x
-        mouseRunning = kind == "mouse"
+        mouseRunning = false
         toyReached = false
         toyTryTime = 0
         // reachable from the floor, or a ledge within a leap's height of it
@@ -792,13 +800,30 @@ final class PetBrain {
 
     var hasToy: Bool { mouse != nil }
 
-    /// Placed toys stay put. Only the mouse gets a faint idle twitch as he nears.
+    /// The toy's physics: it falls under gravity (same as the cat) onto whatever is
+    /// beneath where you dropped it, and re-drops to the floor if that window goes.
     private func updateMouse(_ dt: TimeInterval) {
-        guard let ledge = toySurface, let m = mouse else { return }
-        // if the window the toy sat on has gone, the toy drops to the floor
-        if !surfaces.stillExists(ledge, at: m.x) {
+        guard var m = mouse else { return }
+
+        if toyFalling {
+            toyVelY -= gravity * CGFloat(dt)
+            m.y += toyVelY * CGFloat(dt)
+            if m.y <= toyLandY {
+                m.y = toyLandY
+                toyFalling = false
+                toyVelY = 0
+                mouseRunning = toyKind == "mouse"
+            }
+            mouse = m
+            return
+        }
+
+        // if the window the toy was resting on has gone, let it fall to the floor
+        if let ledge = toySurface, !surfaces.stillExists(ledge, at: m.x) {
             toySurface = nil
-            mouse = CGPoint(x: m.x, y: groundY)
+            toyLandY = groundY
+            toyFalling = m.y > groundY + 1
+            toyVelY = 0
             toyReachable = true
         }
     }
@@ -812,6 +837,20 @@ final class PetBrain {
         let dist = t.x - position.x
         let heightGap = t.y - position.y
         facingRight = dist >= 0
+
+        // While it's still dropping he just trots to be underneath it and waits;
+        // reaching and pouncing wait until it has settled.
+        if toyFalling {
+            if state != .walk { enter(.walk, for: 30) }
+            walkTarget = nil; errand = nil
+            let step = baseSpeed * catHuntMul * CGFloat(dt)
+            if abs(dist) > 30 {
+                position.x = min(max(position.x + (dist > 0 ? step : -step),
+                                     walkableRange.lo), walkableRange.hi)
+                position.y = supportY
+            }
+            return
+        }
 
         // Alongside and on the same level — pounce on it.
         if abs(dist) < 46, abs(heightGap) < 26 {
@@ -1272,6 +1311,10 @@ final class PetBrain {
         }
     }
     func debugPetNow() { pet() }
+    /// Drops a toy from high in mid-air; logs its falling y each tick.
+    func debugDropToyHigh() { placeToy(at: CGPoint(x: position.x + 60, y: groundY + 600), kind: "ball") }
+    var debugToyY: Int { Int(mouse?.y ?? -1) }
+    var debugToyFalling: Bool { toyFalling }
 
     /// Testing hook: puts him to sleep, then parks the synthetic cursor over him
     /// so the disturbance-wake can be verified without a real hand on the mouse.

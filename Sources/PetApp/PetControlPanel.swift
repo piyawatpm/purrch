@@ -12,6 +12,7 @@ struct PetControlActions {
     var openTasks: () -> Void
     var openSettings: () -> Void
     var openAbout: () -> Void
+    var openTester: () -> Void
     var close: () -> Void
 }
 
@@ -151,6 +152,8 @@ struct PetControlPanel: View {
             }
             Divider().frame(height: 24)
             footerButton("Settings", "gearshape") { actions.openSettings(); actions.close() }
+            Divider().frame(height: 24)
+            footerButton("Animations", "play.rectangle") { actions.openTester(); actions.close() }
             Divider().frame(height: 24)
             footerButton("About", "info.circle") { actions.openAbout(); actions.close() }
         }

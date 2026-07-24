@@ -9,6 +9,7 @@ final class PanelWindows: NSObject, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     private var tasksWindow: NSWindow?
+    private var testerWindow: NSWindow?
 
     private func makeWindow<V: View>(title: String, size: CGSize, root: V) -> NSWindow {
         let window = NSWindow(
@@ -42,6 +43,14 @@ final class PanelWindows: NSObject, NSWindowDelegate {
         present(tasksWindow)
     }
 
+    func showAnimationTester(play: @escaping (String) -> Void) {
+        if testerWindow == nil {
+            testerWindow = makeWindow(title: "Animations", size: CGSize(width: 380, height: 460),
+                                      root: AnimationTesterView(play: play))
+        }
+        present(testerWindow)
+    }
+
     func showAbout() {
         if aboutWindow == nil {
             aboutWindow = makeWindow(title: "", size: CGSize(width: 380, height: 470),
@@ -59,7 +68,7 @@ final class PanelWindows: NSObject, NSWindowDelegate {
     /// Drop the Dock icon again once no panel is left on screen.
     func windowWillClose(_ notification: Notification) {
         DispatchQueue.main.async {
-            let stillOpen = [self.settingsWindow, self.aboutWindow, self.tasksWindow]
+            let stillOpen = [self.settingsWindow, self.aboutWindow, self.tasksWindow, self.testerWindow]
                 .contains { $0?.isVisible == true }
             if !stillOpen { NSApp.setActivationPolicy(.accessory) }
         }

@@ -55,7 +55,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item("Come Here", #selector(comeHere)))
         menu.addItem(item("Feed \(name)", #selector(feed)))
         menu.addItem(toyMenu())
-        menu.addItem(animationTesterMenu())
+        menu.addItem(item("Test Animations…", #selector(openTester)))
         menu.addItem(item(settings.hidden ? "Show \(name)" : "Hide \(name)", #selector(toggleHidden)))
         menu.addItem(item("Sit", #selector(sitNow)))
         menu.addItem(item("Sleep Now", #selector(sleepNow)))
@@ -167,22 +167,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if let v = sender.representedObject as? String { settings.selectedToy = v }
     }
 
-    /// A submenu listing every animation, so any of them can be played on demand.
-    private func animationTesterMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Test Animation", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        for name in controller.allAnimations {
-            let child = NSMenuItem(title: name.capitalized, action: #selector(playAnimation(_:)), keyEquivalent: "")
-            child.target = self
-            child.representedObject = name
-            sub.addItem(child)
-        }
-        parent.submenu = sub
-        return parent
-    }
-    @objc private func playAnimation(_ sender: NSMenuItem) {
-        if let name = sender.representedObject as? String { controller.playAnimation(name) }
-    }
+    @objc private func openTester() { controller.showAnimationTester() }
     @objc private func toggleAntics() { settings.anticsEnabled.toggle() }
     @objc private func toggleGreetings() { settings.greetingsEnabled.toggle() }
     @objc private func toggleClingy() { settings.clingyEnabled.toggle() }

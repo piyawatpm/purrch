@@ -186,6 +186,7 @@ final class PetController: NSObject {
             openSettings:{ [weak self] in guard let self else { return }
                            PanelWindows.shared.showSettings(controller: self) },
             openAbout:   { PanelWindows.shared.showAbout() },
+            openTester:  { [weak self] in self?.showAnimationTester() },
             close:    { [weak self] in self?.controlPopover.performClose(nil) })
 
         controlPopover.contentViewController = NSHostingController(rootView: PetControlPanel(actions: actions))
@@ -212,6 +213,10 @@ final class PetController: NSObject {
 
     /// Every animation the cat has, for the tester menu.
     var allAnimations: [String] { PetState.allCases.map { $0.rawValue } }
+
+    func showAnimationTester() {
+        PanelWindows.shared.showAnimationTester { [weak self] name in self?.playAnimation(name) }
+    }
 
     @objc private func refreshQuickAddHotKey() {
         guard settings.quickAddEnabled else {

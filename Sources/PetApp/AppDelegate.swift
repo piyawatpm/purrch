@@ -14,10 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = Settings.shared
         controller.applyCaptureSetting()
 
+        // Re-apply a saved photo likeness so the companion keeps its custom look.
+        PetPortraitStore.shared.restore()
+
         // Lets a panel be opened straight from the command line, which is how the UI
         // gets exercised without clicking through the menu bar.
         let args = CommandLine.arguments
-        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble", "--toy-floor", "--toy-high", "--toy-sulk", "--tester", "--toy-drop"]
+        let debugFlags = ["--tasks", "--about", "--settings", "--feed", "--popover", "--edge-test", "--complete-task", "--perch-test", "--anim-cycle", "--emotions", "--mouse", "--mode", "--clingy", "--mouse-ledge", "--stargaze", "--sleep", "--sleep-persist", "--bellyplay", "--panel", "--sleep-disturb", "--bubble", "--toy-floor", "--toy-high", "--toy-sulk", "--tester", "--toy-drop", "--portrait-test"]
         if args.contains(where: debugFlags.contains) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 if args.contains("--tasks") { PanelWindows.shared.showTasks() }
@@ -74,6 +77,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 if args.contains("--tester") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { controller.showAnimationTester() }
+                }
+                if args.contains("--portrait-test") {
+                    // Runs the whole photo pipeline against the mock renderer (no key,
+                    // no spend) so the plumbing can be verified end to end. Applies
+                    // in memory only and dumps an 8x preview PNG to the temp dir.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        let lib = SpriteLibrary.shared
+                        let sp = Settings.shared.species
+                        guard let template = lib.idleTemplate(species: sp) else { NSLog("portrait-test: no template"); return }
+                        Task {
+                            do {
+                                let result = try await PortraitPipeline.run(
+                                    photo: template, provider: MockImageProvider(), species: sp, template: template,
+                                    frameWidth: lib.frameWidth, frameHeight: lib.frameHeight, groundRow: lib.groundRow)
+                                await MainActor.run {
+                                    SpriteLibrary.shared.setCustomPet(idle: result.idle, palette: result.palette)
+                                    NotificationCenter.default.post(name: Settings.paletteChanged, object: nil)
+                                    let big = PixelOps.upscale(result.idle, factor: 8)
+                                    let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("portrait_test.png")
+                                    try? NSBitmapImageRep(cgImage: big).representation(using: .png, properties: [:])?.write(to: url)
+                                    NSLog("portrait-test: idle=\(result.idle.width)x\(result.idle.height) frames=\(lib.clip(.idle).frames.count) palette mid=\(result.palette.mid.hex) → \(url.path)")
+                                }
+                            } catch { NSLog("portrait-test error: \(error)") }
+                        }
+                    }
                 }
                 if args.contains("--toy-drop") {
                     // drop a toy from high up in mid-air; it should fall to the floor

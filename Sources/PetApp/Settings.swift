@@ -32,6 +32,9 @@ final class Settings {
         static let species = "species"
         static let selectedToy = "selectedToy"
         static let jumpHeight = "jumpHeight"
+        static let customPet = "customPetEnabled"
+        static let customCoat = "customCoatPalette"
+        static let imageProvider = "imageProvider"
     }
 
     /// Shipped defaults. The sprite PNGs carry placeholder key colours that the app
@@ -71,6 +74,8 @@ final class Settings {
             K.species: "cat",
             K.selectedToy: "mouse",
             K.jumpHeight: 1.0,
+            K.customPet: false,
+            K.imageProvider: "gemini",
         ])
     }
 
@@ -216,6 +221,27 @@ final class Settings {
     var jumpHeight: Double {
         get { let v = d.double(forKey: K.jumpHeight); return v == 0 ? 1.0 : min(2.0, max(0.5, v)) }
         set { d.set(newValue, forKey: K.jumpHeight); changed() }
+    }
+
+    // MARK: - Custom pet (photo likeness)
+
+    /// When on, the companion wears a photo-generated likeness of the user's pet.
+    var customPetEnabled: Bool {
+        get { d.bool(forKey: K.customPet) }
+        set { d.set(newValue, forKey: K.customPet); changed() }
+    }
+
+    /// gemini | openai — which image API the "make it look like my pet" flow calls.
+    var imageProvider: String {
+        get { d.string(forKey: K.imageProvider) ?? "gemini" }
+        set { d.set(newValue, forKey: K.imageProvider); changed() }
+    }
+
+    /// The coat ramp pulled from the pet photo, remapped onto every frame. Stored
+    /// as comma-separated hex; nil until a pet has been generated.
+    var customCoatPalette: CoatPalette? {
+        get { d.string(forKey: K.customCoat).flatMap { CoatPalette(encoded: $0) } }
+        set { d.set(newValue?.encoded, forKey: K.customCoat) }
     }
 
     /// none | band | bell | bowtie | bandana — swaps the sprite sheets.

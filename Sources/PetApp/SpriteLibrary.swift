@@ -77,6 +77,19 @@ final class SpriteLibrary {
     private var sheets: [PetState: (image: CGImage, frameCount: Int, frameDuration: TimeInterval)] = [:]
     private var clips: [PetState: AnimationClip] = [:]
 
+    /// A photo-generated idle sprite that overrides the stock idle when set.
+    private var customIdle: CGImage?
+    /// Coat colours pulled from the user's pet, remapped onto every animation.
+    private var customPalette: CoatPalette?
+
+    /// The baked fur ramps of the stock art. When the user gives the companion
+    /// their pet's look, these are the keys we remap to the photo palette.
+    private struct Coat { let outline, dark, mid, light, rim: RGB }
+    private static let catCoat = Coat(outline: RGB(9, 9, 13), dark: RGB(25, 25, 31), mid: RGB(37, 37, 46),
+                                      light: RGB(52, 52, 64), rim: RGB(110, 114, 138))
+    private static let dogCoat = Coat(outline: RGB(70, 52, 40), dark: RGB(196, 168, 128), mid: RGB(224, 200, 160),
+                                      light: RGB(242, 226, 196), rim: RGB(252, 244, 228))
+
     /// How far his artwork actually reaches from the centre of the canvas, in
     /// sprite pixels. Idle and walk run tail-tip to whisker-tip across the full
     /// frame, so this is what "fully on screen" has to be measured against.
@@ -208,11 +221,12 @@ final class SpriteLibrary {
             loadSheets(style: settings.collarStyle, species: settings.species)
         }
 
-        let eye = RGB(hex: settings.eyeColorHex) ?? RGB(hex: Settings.DefaultColor.eye)!
+        // A photo palette can override the eye colour too; otherwise the picker wins.
+        let eye = customPalette?.eye ?? RGB(hex: settings.eyeColorHex) ?? RGB(hex: Settings.DefaultColor.eye)!
         let ear = RGB(hex: settings.innerEarColorHex) ?? RGB(hex: Settings.DefaultColor.innerEar)!
         let collar = RGB(hex: settings.collarColorHex) ?? RGB(hex: Settings.DefaultColor.collar)!
         let bell = RGB(hex: settings.bellColorHex) ?? RGB(hex: Settings.DefaultColor.bell)!
-        let map: [(from: RGB, to: RGB)] = [
+        var map: [(from: RGB, to: RGB)] = [
             (Key.eye, eye),
             (Key.eyeShadow, eye.shaded(0.70)),
             (Key.innerEar, ear),
@@ -220,6 +234,16 @@ final class SpriteLibrary {
             (Key.bell, bell),
             (Key.bandana, collar),        // bandana cloth follows the collar colour
         ]
+
+        // A photo palette repaints the coat itself, so every animation matches the
+        // user's pet — not just the idle likeness.
+        if let pet = customPalette {
+            let coat = (loadedSpecies == "dog") ? Self.dogCoat : Self.catCoat
+            map += [
+                (coat.outline, pet.outline), (coat.dark, pet.dark), (coat.mid, pet.mid),
+                (coat.light, pet.light), (coat.rim, pet.rim),
+            ]
+        }
 
         for (state, sheet) in sheets {
             let recoloured = Self.recolour(sheet.image, map: map) ?? sheet.image
@@ -231,7 +255,56 @@ final class SpriteLibrary {
             }
             clips[state] = AnimationClip(frames: frames, frameDuration: sheet.frameDuration)
         }
+
+        // The photo likeness replaces the idle clip outright — it's the pet's own
+        // pixels, so it isn't recoloured — with a gentle breathing bob added.
+        if let idle = customIdle {
+            clips[.idle] = Self.breathingClip(from: idle, frameWidth: frameWidth, frameHeight: frameHeight)
+        }
+
         measureContentExtent()
+    }
+
+    // MARK: - Custom pet
+
+    /// Sets (or clears) the photo-generated look and rebuilds every clip.
+    func setCustomPet(idle: CGImage?, palette: CoatPalette?) {
+        customIdle = idle
+        customPalette = palette
+        applyPalette()
+    }
+
+    /// The stock idle sprite for a species — the pose reference sent to the image
+    /// model. Loaded straight from the bundle so it ignores any custom override.
+    func idleTemplate(species rawSpecies: String) -> CGImage? {
+        let species = (rawSpecies == "dog") ? "dog" : "cat"
+        guard let url = sheetURL(species: species, style: loadedStyle, anim: "idle")
+                    ?? sheetURL(species: species, style: "bell", anim: "idle"),
+              let sheet = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return nil }
+        return sheet.cropping(to: CGRect(x: 0, y: 0, width: frameWidth, height: frameHeight))
+    }
+
+    /// Wraps a single custom idle image in a slow vertical bob so the resting pet
+    /// looks alive rather than frozen.
+    private static func breathingClip(from image: CGImage, frameWidth: Int, frameHeight: Int) -> AnimationClip {
+        let offsets = [0, 0, 0, 1, 1, 1]      // pixels the body sinks, feet planted
+        let frames = offsets.map { dy -> SpriteFrame in
+            let img = shift(image, dy: dy, w: frameWidth, h: frameHeight) ?? image
+            return SpriteFrame(image: img, opaque: opacityMask(img))
+        }
+        return AnimationClip(frames: frames, frameDuration: 0.16)
+    }
+
+    private static func shift(_ image: CGImage, dy: Int, w: Int, h: Int) -> CGImage? {
+        guard dy != 0 else { return image }
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        ctx.interpolationQuality = .none
+        // Bottom-left origin: drawing lower by dy makes the body dip.
+        ctx.draw(image, in: CGRect(x: 0, y: CGFloat(-dy), width: CGFloat(w), height: CGFloat(h)))
+        return ctx.makeImage()
     }
 
     /// Walks the opacity masks once to find the widest occupied column. Recolouring

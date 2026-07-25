@@ -35,6 +35,8 @@ private struct LookTab: View {
     @State private var collarStyle = Settings.shared.collarStyle
     @State private var collarColor = Color(hex: Settings.shared.collarColorHex)
     @State private var bellColor = Color(hex: Settings.shared.bellColorHex)
+    @State private var showPortrait = false
+    @State private var customActive = Settings.shared.customPetEnabled
 
     var body: some View {
         Form {
@@ -53,6 +55,24 @@ private struct LookTab: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .onChange(of: species) { _, v in settings.species = v }
+            }
+
+            Section {
+                Button {
+                    showPortrait = true
+                } label: {
+                    Label("Make it look like my pet…", systemImage: "camera.fill")
+                }
+                if customActive {
+                    Button("Revert to the default look", role: .destructive) {
+                        PetPortraitStore.shared.revert()
+                        customActive = false
+                    }
+                }
+            } header: {
+                Text("Your own pet")
+            } footer: {
+                Text("Upload a photo and an image model redraws your pet as the companion, colouring the rest of the rig to match.")
             }
 
             Section("Size") {
@@ -101,6 +121,9 @@ private struct LookTab: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showPortrait, onDismiss: { customActive = settings.customPetEnabled }) {
+            PortraitView()
+        }
     }
 }
 

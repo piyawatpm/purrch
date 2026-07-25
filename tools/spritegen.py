@@ -163,23 +163,28 @@ def rim_pass(cv):
             cv.put(x, y, LIGHT)
 
 
-def fluff_pass(cv):
-    """Adds a bumpy, furry fringe around the silhouette so the dog reads fluffy.
-    Deterministic (hashed by position) so frames stay steady."""
-    solid = dict(cv.px)
+def fluff_pass(cv, layers=2):
+    """Grows a thick, voluminous furry coat outward so the Pom reads as a round
+    fluffball rather than a lean cat. Deterministic so frames stay steady."""
     fur = {DARK, MID, LIGHT, RIM, WARM}
-    add = []
-    for (x, y), c in solid.items():
-        if c not in fur:
-            continue
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nb = (x + dx, y + dy)
-            if nb in solid:
+    for layer in range(layers):
+        solid = dict(cv.px)
+        add = {}
+        for (x, y), c in solid.items():
+            if c not in fur:
                 continue
-            if ((x * 7 + y * 13 + dx * 5 + dy * 11) % 10) < 4:   # ~40% of edges sprout fluff
-                add.append((nb, c))
-    for (pos, c) in add:
-        cv.put(pos[0], pos[1], c)
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1),
+                           (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                nb = (x + dx, y + dy)
+                if nb in solid or nb in add:
+                    continue
+                # denser on the first layer; sparser on the outer wisps
+                thresh = 6 if layer == 0 else 3
+                if ((x * 7 + y * 13 + dx * 5 + dy * 11 + layer * 3) % 10) < thresh:
+                    # outer fluff is the light rim colour -> a soft halo of fur
+                    add[nb] = RIM if layer > 0 else c
+        for (pos, c) in add.items():
+            cv.put(pos[0], pos[1], c)
 
 
 def outline_pass(cv):
@@ -438,6 +443,9 @@ def draw_sit(cv, p):
 
     hx, hy = p["hx"], p["hy"]
     cv.taper(bx + 3.4, by - 3.8, hx - 1.4, hy + 3.2, 4.6, 4.4, MID)
+    if SPECIES == "dog":                                   # fluffy chest ruff
+        cv.ellipse(hx - 3.0, hy + 4.2, 4.8, 4.2, MID)
+        cv.ellipse(hx - 3.6, hy + 3.4, 3.2, 3.2, LIGHT)
     draw_head(cv, hx, hy, p.get("eye", 1.0), p.get("tw", 0.0),
               p.get("mouth", 0), p.get("look", 0.0), yawn=p.get("yawn", 0.0))
     draw_collar(cv, hx - 2.4, hy + 4.6)

@@ -7,12 +7,13 @@ final class Sounds {
     static let shared = Sounds()
 
     enum Cue: String {
-        case meow, crunch
+        case meow, crunch, bark
 
         /// Per-cue balance, before the user's master volume is applied.
         var baseVolume: Float {
             switch self {
             case .meow:   return 0.55
+            case .bark:   return 0.5
             case .crunch: return 0.5
             }
         }
@@ -21,7 +22,7 @@ final class Sounds {
     private var players: [Cue: AVAudioPlayer] = [:]
 
     private init() {
-        for cue in [Cue.meow, Cue.crunch] {
+        for cue in [Cue.meow, Cue.crunch, Cue.bark] {
             guard let url = Bundle.module.url(forResource: cue.rawValue, withExtension: "wav",
                                               subdirectory: "Resources/Sounds"),
                   let player = try? AVAudioPlayer(contentsOf: url) else { continue }

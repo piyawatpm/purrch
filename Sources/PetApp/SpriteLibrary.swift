@@ -118,7 +118,7 @@ final class SpriteLibrary {
         collarStyles = manifest.collarStyles ?? ["bell"]
         frameInfo = manifest.animations.mapValues { ($0.frames, $0.msPerFrame / 1000.0) }
 
-        loadSheets(style: Settings.shared.collarStyle)
+        loadSheets(style: Settings.shared.collarStyle, species: Settings.shared.species)
         loadBowls()
         loadMouse()
         applyPalette()
@@ -126,26 +126,30 @@ final class SpriteLibrary {
 
     private var frameInfo: [String: (frames: Int, dur: TimeInterval)] = [:]
     private(set) var loadedStyle = ""
+    private(set) var loadedSpecies = ""
 
-    /// Loads the body sheets for a collar style. A missing style falls back to bell.
-    func loadSheets(style rawStyle: String) {
+    /// Loads the body sheets for a species + collar style, falling back to cat/bell.
+    func loadSheets(style rawStyle: String, species rawSpecies: String) {
         let style = collarStyles.contains(rawStyle) ? rawStyle : "bell"
+        let species = (rawSpecies == "dog") ? "dog" : "cat"
         sheets.removeAll()
         for state in PetState.allCases {
             guard let info = frameInfo[state.rawValue],
-                  let url = sheetURL(style: style, anim: state.rawValue) ?? sheetURL(style: "bell", anim: state.rawValue),
+                  let url = sheetURL(species: species, style: style, anim: state.rawValue)
+                        ?? sheetURL(species: "cat", style: "bell", anim: state.rawValue),
                   let sheet = NSImage(contentsOf: url)?
                       .cgImage(forProposedRect: nil, context: nil, hints: nil)
             else {
-                fatalError("sprite sheet '\(style)__\(state.rawValue).png' missing from the app bundle")
+                fatalError("sprite sheet '\(species)__\(style)__\(state.rawValue).png' missing")
             }
             sheets[state] = (sheet, info.frames, info.dur)
         }
         loadedStyle = style
+        loadedSpecies = species
     }
 
-    private func sheetURL(style: String, anim: String) -> URL? {
-        Bundle.module.url(forResource: "\(style)__\(anim)", withExtension: "png",
+    private func sheetURL(species: String, style: String, anim: String) -> URL? {
+        Bundle.module.url(forResource: "\(species)__\(style)__\(anim)", withExtension: "png",
                           subdirectory: "Resources/Sprites")
     }
 
@@ -199,8 +203,10 @@ final class SpriteLibrary {
     /// Rebuilds every clip from the source sheets using the colours in Settings.
     func applyPalette() {
         let settings = Settings.shared
-        // Reload the body sheets if the collar style changed since last time.
-        if settings.collarStyle != loadedStyle { loadSheets(style: settings.collarStyle) }
+        // Reload the body sheets if the collar style or species changed.
+        if settings.collarStyle != loadedStyle || settings.species != loadedSpecies {
+            loadSheets(style: settings.collarStyle, species: settings.species)
+        }
 
         let eye = RGB(hex: settings.eyeColorHex) ?? RGB(hex: Settings.DefaultColor.eye)!
         let ear = RGB(hex: settings.innerEarColorHex) ?? RGB(hex: Settings.DefaultColor.innerEar)!

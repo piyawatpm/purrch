@@ -155,6 +155,10 @@
     "bowtie",
     "bandana"
   ],
+  "species": [
+    "cat",
+    "dog"
+  ],
   "bowls": [
     "kibble",
     "fish",

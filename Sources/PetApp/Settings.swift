@@ -29,6 +29,7 @@ final class Settings {
         static let collarStyle = "collarStyle"
         static let collarColor = "collarColorHex"
         static let bellColor = "bellColorHex"
+        static let species = "species"
         static let selectedToy = "selectedToy"
         static let jumpHeight = "jumpHeight"
     }
@@ -67,6 +68,7 @@ final class Settings {
             K.collarStyle: "bell",
             K.collarColor: DefaultColor.collar,
             K.bellColor: DefaultColor.bell,
+            K.species: "cat",
             K.selectedToy: "mouse",
             K.jumpHeight: 1.0,
         ])
@@ -189,6 +191,16 @@ final class Settings {
         get { d.string(forKey: K.innerEarColor) ?? DefaultColor.innerEar }
         set {
             d.set(newValue, forKey: K.innerEarColor)
+            NotificationCenter.default.post(name: Settings.paletteChanged, object: nil)
+            changed()
+        }
+    }
+
+    /// cat | dog — swaps the whole sprite set.
+    var species: String {
+        get { d.string(forKey: K.species) ?? "cat" }
+        set {
+            d.set(newValue, forKey: K.species)
             NotificationCenter.default.post(name: Settings.paletteChanged, object: nil)
             changed()
         }

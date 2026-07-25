@@ -367,7 +367,9 @@ final class PetBrain {
         switch Int.random(in: 0..<100) {
         case 0..<36:                                    // a sudden meow
             onMeow?()
-            say(["meow", "mrrp", "mrow", "prrrt", "mew", "meww"].randomElement()!, for: 2.6)
+            let cat = ["meow", "mrrp", "mrow", "prrrt", "mew", "meww"]
+            let dog = ["woof", "bork", "arf", "boof", "woof woof", "ruff"]
+            say((settings.species == "dog" ? dog : cat).randomElement()!, for: 2.6)
         case 36..<60:                                   // asking for a treat
             if state == .idle || state == .sit || state == .loaf {
                 enter(.beg, for: 3.4)

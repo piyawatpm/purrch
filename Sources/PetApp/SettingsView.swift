@@ -28,6 +28,7 @@ struct SettingsView: View {
 private struct LookTab: View {
     private let settings = Settings.shared
 
+    @State private var species = Settings.shared.species
     @State private var scale = Settings.shared.scale
     @State private var eyeColor = Color(hex: Settings.shared.eyeColorHex)
     @State private var earColor = Color(hex: Settings.shared.innerEarColorHex)
@@ -42,6 +43,16 @@ private struct LookTab: View {
                     .frame(height: 130)
                     .frame(maxWidth: .infinity)
                     .listRowInsets(EdgeInsets())
+            }
+
+            Section("Pet") {
+                Picker("Species", selection: $species) {
+                    Text("Cat").tag("cat")
+                    Text("Dog").tag("dog")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .onChange(of: species) { _, v in settings.species = v }
             }
 
             Section("Size") {

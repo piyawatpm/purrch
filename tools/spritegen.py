@@ -42,6 +42,32 @@ PINK       = (216, 116, 132, 255)
 COLLAR     = (46, 40, 64, 255)     # key colour, remapped by the app
 BELL       = (206, 176, 88, 255)   # key colour, remapped by the app
 BANDANA    = (180, 72, 72, 255)    # key colour for the bandana cloth
+TONGUE     = (214, 108, 120, 255)  # dog pant tongue
+SPECIES    = "cat"                 # cat | dog -- set by main() per sheet set
+
+# Cream Pomeranian palette, swapped in for the dog generation pass.
+_CAT_PAL = {}
+DOG_PAL = {
+    "OUTLINE": (70, 52, 40, 255),
+    "DARK":    (196, 168, 128, 255),
+    "MID":     (224, 200, 160, 255),
+    "LIGHT":   (242, 226, 196, 255),
+    "RIM":     (252, 244, 228, 255),
+    "WARM":    (210, 172, 126, 255),
+    "EYE":     (52, 40, 32, 255),      # dark Pom eyes
+    "EYE_DK":  (34, 26, 20, 255),
+    "PUPIL":   (16, 12, 10, 255),
+    "INNER_EAR": (214, 156, 150, 255),
+    "NOSE":    (36, 30, 30, 255),      # black button nose
+    "WHISKER": (232, 216, 190, 255),
+    "PINK":    (224, 122, 134, 255),
+    "MOUTH":   (74, 40, 40, 255),
+}
+
+def _use_palette(pal):
+    g = globals()
+    for k, v in pal.items():
+        g[k] = v
 MOUTH      = (28, 16, 20, 255)     # open mouth interior, for yawns
 STAR       = (232, 214, 130, 255)  # the birdies circling a dazed cat
 HEART_C    = (226, 92, 116, 255)   # love
@@ -137,6 +163,25 @@ def rim_pass(cv):
             cv.put(x, y, LIGHT)
 
 
+def fluff_pass(cv):
+    """Adds a bumpy, furry fringe around the silhouette so the dog reads fluffy.
+    Deterministic (hashed by position) so frames stay steady."""
+    solid = dict(cv.px)
+    fur = {DARK, MID, LIGHT, RIM, WARM}
+    add = []
+    for (x, y), c in solid.items():
+        if c not in fur:
+            continue
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nb = (x + dx, y + dy)
+            if nb in solid:
+                continue
+            if ((x * 7 + y * 13 + dx * 5 + dy * 11) % 10) < 4:   # ~40% of edges sprout fluff
+                add.append((nb, c))
+    for (pos, c) in add:
+        cv.put(pos[0], pos[1], c)
+
+
 def outline_pass(cv):
     solid = set(cv.px.keys())
     edge = set()
@@ -151,7 +196,7 @@ def outline_pass(cv):
 # ------------------------------------------------------------ cat features --
 
 def draw_ears(cv, hx, hy, tw=0.0, flat=0.0):
-    """Tall pointed ears -- the single most recognisable thing about him."""
+    """Tall pointed ears -- cats and (fluffy) Pomeranians both have them erect."""
     lift = 1.0 - flat
     far = [(hx - 4.8, hy - 2.2), (hx - 6.2 + tw, hy - 2.2 - 8.4 * lift), (hx - 0.8, hy - 4.4)]
     near = [(hx + 0.4, hy - 4.6), (hx + 2.6 + tw, hy - 3.0 - 9.0 * lift), (hx + 5.4, hy - 2.0)]
@@ -172,9 +217,12 @@ def draw_near_ear(cv, hx, hy, near):
 def draw_face(cv, hx, hy, eye=1.0, mouth=0, look=0.0, yawn=0.0):
     # muzzle wedge pushes forward off the skull
     cv.ellipse(hx + 3.9, hy + 2.0, 2.4, 1.9, LIGHT)
-    cv.put(hx + 5.6, hy + 1.3, NOSE)
-    cv.put(hx + 5.6, hy + 2.1, NOSE)
-    cv.put(hx + 5.0, hy + 1.3, NOSE)
+    if SPECIES == "dog":
+        cv.ellipse(hx + 5.6, hy + 1.8, 1.4, 1.2, NOSE)     # round black button nose
+    else:
+        cv.put(hx + 5.6, hy + 1.3, NOSE)
+        cv.put(hx + 5.6, hy + 2.1, NOSE)
+        cv.put(hx + 5.0, hy + 1.3, NOSE)
 
     ex, ey = hx + 2.1 + look, hy - 0.2
     if eye <= -2:                                    # narrowed: a hard glare
@@ -202,6 +250,12 @@ def draw_face(cv, hx, hy, eye=1.0, mouth=0, look=0.0, yawn=0.0):
         cv.rect(ex - 1.5, ey + 0.2, ex + 0.6, ey + 0.2, OUTLINE)
         cv.put(ex + 1.2, ey - 0.4, OUTLINE)
 
+    if SPECIES == "dog":
+        if yawn > 0.05:
+            cv.ellipse(hx + 4.8, hy + 3.4, 1.2 + yawn * 1.2, 0.8 + yawn * 1.6, MOUTH)
+        elif mouth:                                  # panting -- little tongue out
+            cv.ellipse(hx + 5.0, hy + 3.8, 1.0, 1.5, TONGUE)
+        return
     if yawn > 0.05:                                  # jaw drops open
         w = 1.1 + yawn * 1.7
         h = 0.7 + yawn * 2.1
@@ -220,7 +274,7 @@ def draw_face(cv, hx, hy, eye=1.0, mouth=0, look=0.0, yawn=0.0):
 def draw_head(cv, hx, hy, eye=1.0, tw=0.0, mouth=0, look=0.0, flat=0.0, yawn=0.0):
     near = draw_ears(cv, hx, hy, tw, flat)
     cv.ellipse(hx, hy, 5.4, 4.9, MID)                # skull
-    cv.ellipse(hx + 1.6, hy + 2.2, 4.4, 3.3, MID)    # cheeks
+    cv.ellipse(hx + 1.6, hy + 2.2, 4.4, 3.3, MID)    # cheeks / short muzzle mass
     draw_near_ear(cv, hx, hy, near)
     draw_face(cv, hx, hy, eye, mouth, look, yawn)
 
@@ -257,7 +311,15 @@ def draw_collar(cv, x, y):
         return
 
 
-def draw_tail(cv, x0, y0, angle, curl, seg=7, length=1.9, w0=4.4, w1=2.3, c=DARK):
+def draw_tail(cv, x0, y0, angle, curl, seg=7, length=1.9, w0=4.4, w1=2.3, c=None):
+    if c is None:
+        c = DARK                         # resolved now, so a swapped palette applies
+    if SPECIES == "dog":                 # a Pom's fat fluffy tail curls up high
+        angle += 1.15
+        curl += 0.34
+        w0 += 2.4; w1 += 2.2
+        length -= 0.1
+        seg += 1
     x, y, a = x0, y0, angle
     for i in range(seg):
         t = i / max(1, seg - 1)
@@ -626,8 +688,33 @@ def draw_rollover(cv, p):
     cv.rect(hx - 0.6, hy - 0.4, hx + 1.2, hy - 0.4, OUTLINE)  # blissful squint
 
 
+def draw_dog_playbow(cv, p):
+    """The dog play-bow: chest and front paws down, rear end and tail up high."""
+    bx = p["bx"]
+    gy = GROUND
+    # rear legs standing tall (rump up)
+    for dx, c in ((-6.0, DARK), (-4.0, MID)):
+        cv.taper(bx + dx, gy - 12, bx + dx, gy - 1.2, 3.0, 2.6, c)
+        cv.ellipse(bx + dx, gy - 1.0, 1.9, 1.2, c)
+    cv.ellipse(bx - 4.4, gy - 12, 5.0, 4.4, MID)          # raised haunches
+    cv.ellipse(bx + 1.0, gy - 8, 5.6, 4.0, MID)           # sloping back
+    cv.ellipse(bx + 5.6, gy - 3.5, 4.4, 3.4, MID)         # chest dropped low
+    # front legs stretched forward flat on the floor
+    for dy, c in ((-0.4, MID), (0.8, DARK)):
+        cv.taper(bx + 6.0, gy - 3.5 + dy, bx + 11.5, gy - 1.2, 3.0, 2.4, c)
+        cv.ellipse(bx + 12.0, gy - 1.0, 2.0, 1.2, c)
+    # tail up high, wagging
+    draw_tail(cv, bx - 6.4, gy - 13, 1.5, 0.10, length=2.0)
+    hx, hy = bx + 8.0, gy - 4.0
+    draw_head(cv, hx, hy, 1.0, 0.0, 1, 0.0)              # head low, tongue out (mouth=1)
+    draw_collar(cv, hx - 3.0, hy + 3.6)
+
+
 def draw_arch(cv, p):
-    """Spooked: the classic Halloween inverted-U, legs like stilts, tail a plume."""
+    """Spooked cat: the Halloween inverted-U. Dogs do a play-bow instead."""
+    if SPECIES == "dog":
+        draw_dog_playbow(cv, p)
+        return
     bx = p["bx"]
     a = p.get("arch", 1.0)
     puff = p.get("puff", 1.0)
@@ -820,6 +907,8 @@ def frame(fn, p):
     fn(cv, p)
     warm_pass(cv)
     rim_pass(cv)
+    if SPECIES == "dog":
+        fluff_pass(cv)
     outline_pass(cv)
     for (x, y, c) in cv.late:
         cv.put(x, y, c)
@@ -1418,6 +1507,7 @@ ANIMS = {
 
 COLLAR_STYLES = ["none", "band", "bell", "bowtie", "bandana"]
 DEFAULT_STYLE = "bell"
+SPECIES_LIST = ["cat", "dog"]
 
 
 def main():
@@ -1426,21 +1516,27 @@ def main():
     os.makedirs(outdir, exist_ok=True)
 
     manifest = {"frameWidth": W, "frameHeight": H, "ground": int(GROUND),
-                "animations": {}, "collarStyles": COLLAR_STYLES}
-    global ACC_STYLE
+                "animations": {}, "collarStyles": COLLAR_STYLES,
+                "species": SPECIES_LIST}
+    global ACC_STYLE, SPECIES
     sheets = {}
-    for style in COLLAR_STYLES:
-        ACC_STYLE = style
-        for name, (fn, ms) in ANIMS.items():
-            frames = fn()
-            sheet = Image.new("RGBA", (W * len(frames), H), (0, 0, 0, 0))
-            for i, f in enumerate(frames):
-                sheet.paste(f, (i * W, 0))
-            sheet.save(os.path.join(outdir, f"{style}__{name}.png"))
-            if style == DEFAULT_STYLE:
-                sheets[name] = frames
-                manifest["animations"][name] = {"frames": len(frames), "msPerFrame": ms}
-    ACC_STYLE = DEFAULT_STYLE
+    global DARK, MID, LIGHT, RIM, WARM, OUTLINE, EYE, EYE_DK, PUPIL, INNER_EAR, NOSE, WHISKER, PINK, MOUTH
+    _CAT_PAL.update({k: globals()[k] for k in DOG_PAL})
+    for species in SPECIES_LIST:
+        SPECIES = species
+        _use_palette(DOG_PAL if species == "dog" else _CAT_PAL)
+        for style in COLLAR_STYLES:
+            ACC_STYLE = style
+            for name, (fn, ms) in ANIMS.items():
+                frames = fn()
+                sheet = Image.new("RGBA", (W * len(frames), H), (0, 0, 0, 0))
+                for i, f in enumerate(frames):
+                    sheet.paste(f, (i * W, 0))
+                sheet.save(os.path.join(outdir, f"{species}__{style}__{name}.png"))
+                if species == "cat" and style == DEFAULT_STYLE:
+                    sheets[name] = frames
+                    manifest["animations"][name] = {"frames": len(frames), "msPerFrame": ms}
+    SPECIES = "cat"; ACC_STYLE = DEFAULT_STYLE
 
     # One sheet per food type: column 0 full, column 1 empty.
     for kind in BOWL_KINDS:

@@ -1,6 +1,6 @@
 # Purrch
 
-A native macOS desktop pet — a pixel-art black cat who lives along the bottom of
+A native macOS desktop pet — a pixel-art black **cat or dog** who lives along the bottom of
 your screen — with a task list built in. Menu bar only, no Dock icon.
 
 Built for personal use, so there's no signing, notarisation, or App Store plumbing.
@@ -129,6 +129,11 @@ Settings or the menu if you'd rather he kept his distance.
 - He won't nag when you're away from the machine
 
 **Customization**
+- **Species: cat or dog** — the dog is a fluffy cream **Pomeranian** (its own
+  cream coat, a fuzzy fluffball outline, dark eyes, a black button nose, a
+  panting tongue, a fat curled tail, a play-bow). It reuses the cat's rig where
+  it can, barks instead of meowing, and shares the whole engine (tasks, toys,
+  sleep, modes, …)
 - Company mode; clingy, playful-antics, and time-of-day-hellos toggles
 - Collar style: none, band, bell, bow tie, or bandana — with colour pickers for
   the band and the bell
@@ -190,9 +195,9 @@ outline surrounds everything.
 The eyes, inner ears, collar band, and bell are drawn in fixed placeholder
 colours that act as keys. `SpriteLibrary` remaps them at load time and whenever
 you pick a new colour, so customisation costs one pass over the sheets instead of
-work on every frame. Collar *styles* (bow tie, bandana, …) are full sheet sets
-generated per style — `{style}__{anim}.png` — and the active one is loaded on
-demand.
+work on every frame. Collar *styles* (bow tie, bandana, …) and *species* (cat, dog) are full sheet
+sets generated per combination — `{species}__{style}__{anim}.png` — and the
+active one is loaded on demand.
 
 ## Data
 

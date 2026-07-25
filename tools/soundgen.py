@@ -44,6 +44,28 @@ def meow(seconds=0.62):
     return out
 
 
+def bark(seconds=0.5):
+    """A short "woof": a low burst with a quick pitch drop and a noisy attack."""
+    n = int(RATE * seconds)
+    out = []
+    phase = 0.0
+    rnd = random.Random(31)
+    barks = [0.0, 0.26]                        # two quick woofs
+    for i in range(n):
+        t = i / RATE
+        env = 0.0; f0 = 180
+        for b in barks:
+            if b <= t < b + 0.16:
+                u = (t - b) / 0.16
+                env = max(env, (1 - u) ** 1.6 * (1.0 if u > 0.03 else u / 0.03))
+                f0 = 260 - 150 * u            # pitch falls through each woof
+        phase += math.tau * f0 / RATE
+        tone = math.sin(phase) + 0.5 * math.sin(2 * phase + 0.4) + 0.25 * math.sin(3 * phase)
+        noise = rnd.uniform(-1, 1) * 0.4
+        out.append((tone + noise) * env * 0.6)
+    return out
+
+
 def crunch(seconds=0.75):
     """Three soft bites: short noise bursts through a lowpass, not a click track."""
     n = int(RATE * seconds)
@@ -69,7 +91,8 @@ def main():
     os.makedirs(out, exist_ok=True)
     write_wav(os.path.join(out, "meow.wav"), meow())
     write_wav(os.path.join(out, "crunch.wav"), crunch())
-    print("wrote meow.wav, crunch.wav ->", out)
+    write_wav(os.path.join(out, "bark.wav"), bark())
+    print("wrote meow.wav, crunch.wav, bark.wav ->", out)
 
 
 if __name__ == "__main__":

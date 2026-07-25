@@ -44,7 +44,9 @@ final class PetController: NSObject {
         view.onClick = { [weak self] in self?.handleClick() }
         view.onRightClick = { [weak self] in self?.showControlPanel() }
         let trace = CommandLine.arguments.contains("--trace")
-        brain.onMeow = { Sounds.shared.play(.meow) }
+        brain.onMeow = { [weak self] in
+            Sounds.shared.play(self?.settings.species == "dog" ? .bark : .meow)
+        }
         brain.onStateChange = { [weak self] state in
             guard let self else { return }
             if trace {
@@ -56,7 +58,7 @@ final class PetController: NSObject {
                       "full=\(self.brain.bowlFull)  collar=\(SpriteLibrary.shared.loadedStyle)")
             }
             self.window.invalidateCursorRects(for: view)
-            if state == .happy { Sounds.shared.play(.meow) }
+            if state == .happy { Sounds.shared.play(self.settings.species == "dog" ? .bark : .meow) }
         }
 
         NotificationCenter.default.addObserver(

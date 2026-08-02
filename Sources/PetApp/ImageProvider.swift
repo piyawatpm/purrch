@@ -46,6 +46,17 @@ struct MockImageProvider: PetImageProvider {
     }
 }
 
+// MARK: - Local (free, on-device)
+
+/// The free option: lifts the pet off its background with Apple's Vision (all
+/// on-device — no key, no cost, the photo never leaves the Mac) and hands it back.
+/// The pipeline then downscales it into a crisp pixel version of your actual pet.
+struct LocalImageProvider: PetImageProvider {
+    func render(photo: CGImage, poseTemplate: CGImage, species: String) async throws -> CGImage {
+        await PetVision.liftSubject(from: photo) ?? photo
+    }
+}
+
 // MARK: - Gemini
 
 /// Google's Gemini image model ("nano banana"). Good at keeping a real pet's

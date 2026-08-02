@@ -71,7 +71,8 @@ enum PortraitPipeline {
                     provider: PetImageProvider,
                     species: String,
                     template: CGImage,
-                    frameWidth: Int, frameHeight: Int, groundRow: Int) async throws -> PortraitResult {
+                    frameWidth: Int, frameHeight: Int, groundRow: Int,
+                    crisp: Bool = true) async throws -> PortraitResult {
         // 1. render the pet as pixel art posed like the idle silhouette
         let raw = try await provider.render(photo: photo, poseTemplate: template, species: species)
 
@@ -99,11 +100,14 @@ enum PortraitPipeline {
                                   space: CGColorSpaceCreateDeviceRGB(),
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { throw ImageProviderError.noImage }
-        ctx.interpolationQuality = .none
+        // Crisp (AI pixel art) keeps hard pixels; the free photo path downscales
+        // smoothly then posterises so it reads as pixel art, not a blur.
+        ctx.interpolationQuality = crisp ? .none : .high
         let xoff = (Double(frameWidth) - newW) / 2
         // Bottom-left origin: y = footInset puts the sprite's feet on the ground row.
         ctx.draw(cropped, in: CGRect(x: xoff, y: Double(footInset), width: newW, height: newH))
-        guard let idle = ctx.makeImage() else { throw ImageProviderError.noImage }
+        guard var idle = ctx.makeImage() else { throw ImageProviderError.noImage }
+        if !crisp { idle = PixelOps.posterize(idle, levels: 6) ?? idle }
 
         // 4. sample the coat off the finished sprite so portrait + rig agree
         let palette = extractPalette(from: idle) ?? CoatPalette.fallback(for: species)

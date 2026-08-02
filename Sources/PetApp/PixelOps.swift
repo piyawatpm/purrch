@@ -40,6 +40,20 @@ enum PixelOps {
         return Self.image(px, buf.w, buf.h)
     }
 
+    /// Snaps each colour channel to `levels` steps — a limited-palette, pixel-art
+    /// feel when turning a real photo into a sprite.
+    static func posterize(_ image: CGImage, levels: Int) -> CGImage? {
+        guard let buf = buffer(image) else { return nil }
+        var px = buf.px
+        let step = 255.0 / Double(max(1, levels - 1))
+        for i in stride(from: 0, to: px.count, by: 4) where px[i + 3] > 20 {
+            px[i]     = UInt8(min(255, (Double(px[i]) / step).rounded() * step))
+            px[i + 1] = UInt8(min(255, (Double(px[i + 1]) / step).rounded() * step))
+            px[i + 2] = UInt8(min(255, (Double(px[i + 2]) / step).rounded() * step))
+        }
+        return Self.image(px, buf.w, buf.h)
+    }
+
     /// The tight bounding box of the opaque pixels, in top-left pixel coords.
     static func alphaBBox(_ image: CGImage, threshold: UInt8 = 20) -> CGRect? {
         guard let (px, w, h) = buffer(image) else { return nil }

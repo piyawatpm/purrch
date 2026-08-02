@@ -44,7 +44,7 @@ struct PortraitView: View {
 
     private var providerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Image engine").font(.system(size: 12, weight: .semibold))
+            Text("Sharper look — optional").font(.system(size: 12, weight: .semibold))
             Picker("Engine", selection: $model.provider) {
                 Text("Gemini").tag("gemini")
                 Text("OpenAI").tag("openai")
@@ -52,10 +52,10 @@ struct PortraitView: View {
             .pickerStyle(.segmented).labelsHidden()
             .onChange(of: model.provider) { _, _ in model.reloadKey() }
 
-            SecureField("API key", text: $model.apiKey)
+            SecureField("API key — leave empty for the free version", text: $model.apiKey)
                 .textFieldStyle(.roundedBorder)
             Text(model.apiKey.isEmpty
-                 ? "No key yet — you can still run a free test render to preview the flow."
+                 ? "No key needed — you'll get a free version made right here on your Mac from the photo. Add a Gemini key for a sharper, AI-drawn look (a few cents per image)."
                  : "Stored securely in your Keychain. You pay the provider a few cents per image.")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +127,7 @@ struct PortraitView: View {
             Button {
                 model.generate()
             } label: {
-                Label(model.apiKey.isEmpty ? "Test render (no key)" : "Generate", systemImage: "wand.and.stars")
+                Label(model.apiKey.isEmpty ? "Make it (free)" : "Generate", systemImage: "wand.and.stars")
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.large)
@@ -245,12 +245,13 @@ final class PortraitModel: ObservableObject {
 
         let usingKey = !key.isEmpty
         let engine: PetImageProvider
+        let crisp: Bool
         if !usingKey {
-            engine = MockImageProvider()
+            engine = LocalImageProvider(); crisp = false          // free, on-device
         } else if provider == "openai" {
-            engine = OpenAIImageProvider(apiKey: key)
+            engine = OpenAIImageProvider(apiKey: key); crisp = true
         } else {
-            engine = GeminiImageProvider(apiKey: key)
+            engine = GeminiImageProvider(apiKey: key); crisp = true
         }
 
         guard let template = lib.idleTemplate(species: species) else {
@@ -264,10 +265,10 @@ final class PortraitModel: ObservableObject {
             do {
                 let result = try await PortraitPipeline.run(
                     photo: source, provider: engine, species: sp, template: template,
-                    frameWidth: fw, frameHeight: fh, groundRow: gr)
+                    frameWidth: fw, frameHeight: fh, groundRow: gr, crisp: crisp)
                 self.resultImage = result.idle
                 self.resultPalette = result.palette
-                self.status = usingKey ? "Done — preview below." : "Test render (no key used)."
+                self.status = usingKey ? "Done — preview below." : "Made from your photo — free, on your Mac."
             } catch {
                 self.errorText = error.localizedDescription
                 self.status = ""

@@ -5,6 +5,7 @@
 #   make run      build and launch it
 #   make art      regenerate sprite sheets and sounds
 #   make install  copy into /Applications
+#   make desktop  put the app (with its icon) on your Desktop
 #
 # Rename the app by overriding APP_NAME, e.g.  make APP_NAME=Mochi
 # Default is Purrch. The cat's own name is a separate in-app setting.
@@ -15,7 +16,7 @@ BIN      := .build/release/PetApp
 RESBUNDLE:= .build/release/DeskPet_PetApp.bundle
 CONTENTS := $(APP)/Contents
 
-.PHONY: all build bundle run art install clean
+.PHONY: all build bundle run art install desktop clean
 
 all: bundle
 
@@ -47,6 +48,11 @@ install: bundle
 	rm -rf "/Applications/$(APP)"
 	cp -R "$(APP)" /Applications/
 	@echo "installed to /Applications/$(APP)"
+
+desktop: bundle
+	rm -rf "$(HOME)/Desktop/$(APP)"
+	cp -R "$(APP)" "$(HOME)/Desktop/"
+	@echo "put $(APP) on your Desktop — double-click it to launch"
 
 clean:
 	rm -rf .build "$(APP)"

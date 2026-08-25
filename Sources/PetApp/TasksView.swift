@@ -6,6 +6,17 @@ struct TasksView: View {
     @State private var draft = ""
     @State private var historyDay = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
 
+    // Inline rename
+    @State private var editingID: UUID?
+    @State private var editingText = ""
+    @FocusState private var titleFocused: Bool
+
+    // Group name prompt (shared by "new group" and "rename group")
+    private enum GroupPrompt { case newFor(TodoItem), rename(String) }
+    @State private var groupPrompt: GroupPrompt?
+    @State private var groupPromptText = ""
+    @State private var showGroupPrompt = false
+
     private enum Mode: String, CaseIterable { case today = "Today", history = "History" }
 
     var body: some View {
@@ -27,6 +38,13 @@ struct TasksView: View {
             }
         }
         .frame(minWidth: 420, minHeight: 460)
+        .alert(promptTitle, isPresented: $showGroupPrompt) {
+            TextField("Group name", text: $groupPromptText)
+            Button(promptButton) { applyGroupPrompt() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Give the group a short name — tasks filed under it are shown together.")
+        }
     }
 
     // MARK: - Today
@@ -55,11 +73,11 @@ struct TasksView: View {
                 empty("Nothing on the list.", "Add something above and it stays until it's done.")
             } else {
                 List {
-                    if !open.isEmpty {
+                    ForEach(sections(open)) { section in
                         Section {
-                            ForEach(open) { row($0) }
+                            ForEach(section.items) { row($0) }
                         } header: {
-                            Text("\(open.count) to do").font(.caption)
+                            groupHeader(section.name, count: section.items.count)
                         }
                     }
                     if !done.isEmpty {
@@ -72,6 +90,48 @@ struct TasksView: View {
                 }
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
+            }
+        }
+    }
+
+    // Ungrouped tasks first, then each named group alphabetically.
+    private struct GroupSection: Identifiable {
+        let name: String?
+        let items: [TodoItem]
+        var id: String { name ?? "\u{1}ungrouped" }
+    }
+
+    private func sections(_ open: [TodoItem]) -> [GroupSection] {
+        var result: [GroupSection] = []
+        let ungrouped = open.filter { ($0.group ?? "").isEmpty }
+        if !ungrouped.isEmpty { result.append(GroupSection(name: nil, items: ungrouped)) }
+        for name in store.groupNames {
+            let items = open.filter { $0.group == name }
+            if !items.isEmpty { result.append(GroupSection(name: name, items: items)) }
+        }
+        return result
+    }
+
+    private func groupHeader(_ name: String?, count: Int) -> some View {
+        HStack(spacing: 6) {
+            if let name {
+                Image(systemName: "folder").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text(name).font(.caption).fontWeight(.semibold)
+            } else {
+                Text("To do").font(.caption)
+            }
+            Text("\(count)").font(.caption2).foregroundStyle(.tertiary)
+            Spacer()
+            if let name {
+                Menu {
+                    Button("Rename group…") { promptRename(name) }
+                    Button("Ungroup these") { store.deleteGroup(name) }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
         }
     }
@@ -149,7 +209,7 @@ struct TasksView: View {
         }
     }
 
-    // MARK: - Pieces
+    // MARK: - Row
 
     private func row(_ item: TodoItem) -> some View {
         let carried = store.carriedDays(item)
@@ -163,9 +223,19 @@ struct TasksView: View {
             }
             .buttonStyle(.plain)
 
-            Text(item.title)
-                .strikethrough(item.isDone, color: .secondary)
-                .foregroundStyle(item.isDone ? .secondary : .primary)
+            if editingID == item.id {
+                TextField("", text: $editingText)
+                    .textFieldStyle(.plain)
+                    .focused($titleFocused)
+                    .onSubmit { commitEdit(item) }
+                    .onExitCommand { editingID = nil }
+            } else {
+                Text(item.title)
+                    .strikethrough(item.isDone, color: .secondary)
+                    .foregroundStyle(item.isDone ? .secondary : .primary)
+                    .onTapGesture(count: 2) { startEdit(item) }
+                    .help("Double-click to rename")
+            }
 
             Spacer()
 
@@ -179,11 +249,67 @@ struct TasksView: View {
             }
         }
         .contextMenu {
-            Button(item.isDone ? "Mark as not done" : "Mark as done") { store.toggle(item) }
+            Button("Rename") { startEdit(item) }
+            moveMenu(item)
             Divider()
+            Button(item.isDone ? "Mark as not done" : "Mark as done") { store.toggle(item) }
             Button("Delete", role: .destructive) { store.remove(item) }
         }
     }
+
+    @ViewBuilder private func moveMenu(_ item: TodoItem) -> some View {
+        Menu("Move to group") {
+            if item.group != nil {
+                Button("None") { store.setGroup(item, to: nil) }
+                Divider()
+            }
+            ForEach(store.groupNames.filter { $0 != item.group }, id: \.self) { name in
+                Button(name) { store.setGroup(item, to: name) }
+            }
+            Button("New group…") { promptNew(item) }
+        }
+    }
+
+    // MARK: - Editing / group prompts
+
+    private func startEdit(_ item: TodoItem) {
+        editingText = item.title
+        editingID = item.id
+        DispatchQueue.main.async { titleFocused = true }
+    }
+
+    private func commitEdit(_ item: TodoItem) {
+        store.rename(item, to: editingText)
+        editingID = nil
+    }
+
+    private func promptNew(_ item: TodoItem) {
+        groupPrompt = .newFor(item); groupPromptText = ""; showGroupPrompt = true
+    }
+
+    private func promptRename(_ name: String) {
+        groupPrompt = .rename(name); groupPromptText = name; showGroupPrompt = true
+    }
+
+    private func applyGroupPrompt() {
+        switch groupPrompt {
+        case .newFor(let item): store.setGroup(item, to: groupPromptText)
+        case .rename(let old):  store.renameGroup(old, to: groupPromptText)
+        case .none: break
+        }
+        groupPrompt = nil
+    }
+
+    private var promptTitle: String {
+        if case .rename = groupPrompt { return "Rename group" }
+        return "New group"
+    }
+    private var promptButton: String {
+        if case .rename = groupPrompt { return "Rename" }
+        return "Create"
+    }
+
+    // MARK: - Pieces
 
     private func empty(_ title: String, _ subtitle: String) -> some View {
         VStack(spacing: 6) {

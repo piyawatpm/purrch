@@ -7,6 +7,9 @@ struct TodoItem: Codable, Identifiable, Equatable {
     var createdOn: Date
     /// Exact moment it was ticked off; nil while it's still open.
     var completedAt: Date?
+    /// Optional group the task is filed under; nil means ungrouped. Decodes as
+    /// nil for tasks saved before grouping existed.
+    var group: String?
 
     var isDone: Bool { completedAt != nil }
 }
@@ -148,6 +151,40 @@ final class TaskStore: ObservableObject {
               let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].title = trimmed
         save()
+    }
+
+    // MARK: - Groups
+
+    /// Files a task under a group; nil or blank clears it.
+    func setGroup(_ item: TodoItem, to group: String?) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        let trimmed = group?.trimmingCharacters(in: .whitespacesAndNewlines)
+        items[index].group = (trimmed?.isEmpty == false) ? trimmed : nil
+        save()
+    }
+
+    /// Distinct group names in use by open tasks, alphabetical.
+    var groupNames: [String] {
+        var names = Set<String>()
+        for item in items where !item.isDone {
+            if let g = item.group, !g.isEmpty { names.insert(g) }
+        }
+        return names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    func renameGroup(_ old: String, to new: String) {
+        let trimmed = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var changed = false
+        for i in items.indices where items[i].group == old { items[i].group = trimmed; changed = true }
+        if changed { save() }
+    }
+
+    /// Removes a group, leaving its tasks ungrouped.
+    func deleteGroup(_ name: String) {
+        var changed = false
+        for i in items.indices where items[i].group == name { items[i].group = nil; changed = true }
+        if changed { save() }
     }
 
     /// Drops finished tasks older than the retention window so the file can't grow forever.
